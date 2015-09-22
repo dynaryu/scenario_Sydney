@@ -11,7 +11,7 @@ compute economic loss for each building for residential buildings in Sydney
 3. read mmi-based vulnerability - DONE 
 	3.1 Requires a corresponding set of fragility
 4. compute economic loss - DONE
-5. read damage dependent HAZUS fatality model 
+5. read damage dependent HAZUS fatality model - DONE
 6. compute fatality
 '''
 
@@ -23,6 +23,28 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+def read_hazus_casualty_data(hazus_data_path):
+
+	# read indoor casualty (table13.3 through 13.7)
+	fatality_rate={}
+	colname = ['Bldg type', 'Severity1', 'Severity2', 'Severity3',\
+			   'Severity4']
+	list_ds = ['slight', 'moderate', 'extensive', 'complete', 'collapse']
+	for ds in list_ds:
+		fname = join(hazus_data_path, 'hazus_indoor_casualty_' + ds + '.csv')
+		tmp = pd.read_csv(fname, header=0, 
+			names=colname, usecols=[1, 2, 3, 4, 5], index_col=0)
+		fatality_rate[ds] = tmp.to_dict()
+	return fatality_rate
+
+def read_hazus_collapse_rate(hazus_data_path):
+
+	# read collapse rate (table 13.8)
+	fname = join(hazus_data_path, 'hazus_collapse_rate.csv')
+	collapse_rate = pd.read_csv(fname, skiprows=1, names=['Bldg type','rate'], 
+                index_col=0, usecols=[1, 2])
+	return collapse_rate.to_dict()['rate']
 
 def read_sitedb_data(eqrm_input_path, eqrm_output_path, site_tag=None):
     ''' read sitedb file '''
@@ -116,6 +138,7 @@ def plot_vulnerabilty(mmi_range, vul):
 working_path = os.path.join(os.path.expanduser("~"),'Projects/scenario_Sydney')
 eqrm_input_path = os.path.join(working_path, 'input')
 eqrm_output_path = os.path.join(working_path, 'scen_gmMw5.0')
+hazus_data_path = os.path.join(working_path, 'data')
 
 # read inventory
 (data, _) = \
@@ -124,6 +147,11 @@ eqrm_output_path = os.path.join(working_path, 'scen_gmMw5.0')
 # read gmotion
 (_, _, _, mmi) = read_gm(eqrm_output_path, site_tag='sydney_soil')
 
+# read hazus indoor casuality data
+fatality_rate = read_hazus_casualty_data(hazus_data_path)
+
+# read hazus collapse rate data
+collapse_rate = read_hazus_collapse_rate(hazus_data_path)
 
 # combine mmi
 data['MMI'] = pd.Series(mmi[:,0], index=data.index)
