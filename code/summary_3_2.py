@@ -6,12 +6,12 @@ compute economic loss for each building for residential buildings in Sydney
 1. read ground motion - DONE
 2. read sitedb - DONE
 	2.1 Modify bldg type and vintage
-		- Suburb vintage
+		- Suburb vintage (needs to be done seperately)
 	2.2 Extract bldg mixture signature from Alexandria Canal survey data - DONE
-3. read mmi-based vulnerability - DONE 
-	3.1 Requires a corresponding set of fragility
+3. read mmi-based vulnerability - DONE
+	3.1 Requires a corresponding set of fragility (creating_fragility.ipynb)
 4. compute economic loss - DONE
-5. read damage dependent HAZUS fatality model - DONE
+5. read damage dependent HAZUS casualty model - DONE
 6. compute fatality
 '''
 
@@ -147,7 +147,7 @@ hazus_data_path = os.path.join(working_path, 'data')
 # read gmotion
 (_, _, _, mmi) = read_gm(eqrm_output_path, site_tag='sydney_soil')
 
-# read hazus indoor casuality data
+# read hazus indoor casualty data
 fatality_rate = read_hazus_casualty_data(hazus_data_path)
 
 # read hazus collapse rate data

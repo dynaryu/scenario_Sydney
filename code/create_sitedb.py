@@ -1,9 +1,30 @@
 # create sitedb 
 import pandas as pd
+import os
+
+working_path = os.path.join(os.path.expanduser("~"),'Projects/scenario_Sydney')
+#eqrm_input_path = os.path.join(working_path, 'input')
+#eqrm_output_path = os.path.join(working_path, 'scen_gmMw5.0')
+data_path = os.path.join(working_path, 'data')
 
 #dat = pd.read_csv('./input/NSW_Residential_Earthquake_Exposure_201407_for_EQRM.csv')
-dat = pd.read_csv('/media/hyeuk/NTFS/NSW_EQRMrevised_NEXIS2015.csv')
+nsw = pd.read_csv('/media/hyeuk/NTFS/NSW_EQRMrevised_NEXIS2015.csv')
 
+zip_code = pd.read_excel(os.path.join(
+	data_path, 'List_of_Sydney_postcodes.xlsx'), sheetname="Postcodes", 
+	skiprows=1)
+
+suburb_vintage = pd.read_excel(os.path.join(
+	data_path, 'List_of_Sydney_postcodes.xlsx'), sheetname="Postcodes-Suburbs", 
+	skiprows=1)
+idx_old_suburbs = pd.notnull(suburb_vintage['Alexandra Canal?'])
+old_suburbs = suburb_vintage.ix[idx_old_suburbs]['Suburbs'].unique()
+
+ndat = dat.loc[dat['POSTCODE'].isin(selected)]
+ndat = ndat.drop('SA1_CODE',1)
+ndat.to_csv('./.csv', index=False)
+
+# 
 # suburbs in the Alexandria canal survey
 # ERSKINEVILLE    591
 # REDFERN         586
@@ -56,9 +77,3 @@ data['YEAR_BUILT'].value_counts()
 # 1891 - 1913        36
 # 1914 - 1946        75
 
-zip_code = pd.read_csv('./input/sydney_postcode.csv')
-selected = zip_code['Sydney postcodes'].unique()
-
-ndat = dat.loc[dat['POSTCODE'].isin(selected)]
-ndat = ndat.drop('SA1_CODE',1)
-ndat.to_csv('./.csv', index=False)
