@@ -1,79 +1,130 @@
-# create sitedb 
+# create building exposure data for EQRM simulation
+
 import pandas as pd
 import os
+import shapefile
+from shapely.geometry import Polygon
+from shapely.geometry import Point
+import numpy as np
+
+def checking_inside(idx):
+
+	tf_sydney = np.zeros(len(idx), dtype=bool)
+	for i, ix in enumerate(idx):
+	    point_ = Point(nsw.ix[ix]['LONGITUDE'], nsw.ix[ix]['LATITUDE'])
+	    tf_sydney[i] = sydney_boundary.contains(point_)
+
+	return np.any(tf_sydney)    
+
+def convert_to_float(string):
+	val = string.split('-')[-1]
+	try:
+		float(val)
+		return float(val)
+	except ValueError:
+		print "Not a Number"
 
 working_path = os.path.join(os.path.expanduser("~"),'Projects/scenario_Sydney')
-#eqrm_input_path = os.path.join(working_path, 'input')
-#eqrm_output_path = os.path.join(working_path, 'scen_gmMw5.0')
 data_path = os.path.join(working_path, 'data')
 
-#dat = pd.read_csv('./input/NSW_Residential_Earthquake_Exposure_201407_for_EQRM.csv')
-nsw = pd.read_csv('/media/hyeuk/NTFS/NSW_EQRMrevised_NEXIS2015.csv')
+# Read NSW building data
+try:   
+    nsw = pd.read_csv('/Volumes/NTFS/NSW_EQRMrevised_NEXIS2015.csv')
+except IOError:
+    nsw = pd.read_csv('/media/hyeuk/NTFS/NSW_EQRMrevised_NEXIS2015.csv')
+except IOError:
+    print "No USB"
 
-zip_code = pd.read_excel(os.path.join(
-	data_path, 'List_of_Sydney_postcodes.xlsx'), sheetname="Postcodes", 
-	skiprows=1)
+# Read the admin boundary of Greater Sydney
+sf = shapefile.Reader(os.path.join(working_path, 'data/GCCSA_2011_AUST.shp'))
+shapes = sf.shapes()
+records = sf.records()
+#records[2] corresponds to the Greater Sydney
 
+sydney_boundary = Polygon(shapes[2].points)
+
+#table = pd.pivot_table(nsw, values="BID", index='SUBURB',\
+#	columns='POSTCODE', aggfunc=len)
+
+# randomly sample 20 buildings of each postcode
+list_postcode = nsw['POSTCODE'].unique()
+tf_sydney_postcode = np.zeros(len(list_postcode), dtype=bool)
+for i, postcode in enumerate(list_postcode):
+	idx = np.where(nsw['POSTCODE']==postcode)[0]
+	no_blds = len(idx)
+	if no_blds > 20:
+		idx = np.random.choice(idx, 20, replace=False)
+	tf_sydney_postcode[i] = checking_inside(idx)
+	print "%s out of 607: %s, %s" %(i, postcode, tf_sydney_postcode[i])
+
+sydney_postcode = list_postcode[tf_sydney_postcode]
+sydney = nsw.loc[nsw['POSTCODE'].isin(sydney_postcode)].copy()
+
+# assign new class given GA_class and year_built
+# sydney['YEAR_BUILT'].value_counts()
+idx_pre1945 = sydney['YEAR_BUILT'].apply(
+	lambda x: True if convert_to_float(x) <= 1946 else False)
+Timber_list = ['W1TIMBERTILE', 'W1TIMBERMETAL', 'W1BVTILE', 'W1BVMETAL']
+idx_timber = sydney['GA_STRUCTURE_CLASSIFICATION'].isin(Timber_list)
+
+idx_timber_pre1945 = idx_timber & idx_pre1945 
+idx_timber_post1945 = idx_timber & (~idx_pre1945) 
+idx_URM_pre1945 = (~idx_timber) & (idx_pre1945) 
+idx_URM_post1945 = (~idx_timber) & (~idx_pre1945) 
+
+# assign value
+sydney.loc[idx_timber_pre1945, 'BLDG_CLASS'] = 'Timber_Pre1945'
+sydney.loc[idx_timber_post1945, 'BLDG_CLASS'] = 'Timber_Post1945'
+sydney.loc[idx_URM_pre1945, 'BLDG_CLASS'] = 'URM_Pre1945'
+sydney.loc[idx_URM_post1945, 'BLDG_CLASS'] = 'URM_Post1945'
+
+# Read the list of old suburbs
 suburb_vintage = pd.read_excel(os.path.join(
-	data_path, 'List_of_Sydney_postcodes.xlsx'), sheetname="Postcodes-Suburbs", 
-	skiprows=1)
+       data_path, 'List_of_Sydney_postcodes.xlsx'), sheetname="Postcodes-Suburbs", skiprows=1)
 idx_old_suburbs = pd.notnull(suburb_vintage['Alexandra Canal?'])
-old_suburbs = suburb_vintage.ix[idx_old_suburbs]['Suburbs'].unique()
+old_suburbs = suburb_vintage.ix[idx_old_suburbs]['Suburbs'].str.upper()
+old_suburbs = old_suburbs.tolist()
 
-ndat = dat.loc[dat['POSTCODE'].isin(selected)]
-ndat = ndat.drop('SA1_CODE',1)
-ndat.to_csv('./.csv', index=False)
+# minor changes 
+[old_suburbs.append(x) for x in ['ROSEBERY', 'BIRCHGROVE', 'ENFIELD']]
 
-# 
-# suburbs in the Alexandria canal survey
-# ERSKINEVILLE    591
-# REDFERN         586
-# ALEXANDRIA      515
-# SURRY HILLS     483
-# NEWTOWN         211
-# WATERLOO        151
-# ROSEBERY        144
-# BEACONSFIELD     89
-# ZETLAND          21
-# ST PETERS         4
+# Make sure that all of the old suburbs are included in the database. Otherwise there musht be some error.
+idx_old_suburbs = sydney['SUBURB'].isin(old_suburbs)
+no_bldgs_in_old_suburbs = sum(idx_old_suburbs)
 
-dat.ix[dat['SUBURB']=='ERSKINEVILLE']['YEAR_BUILT'].value_counts()
-# Out[25]: 
-# 1987 - 1991    1056
-# 1962 - 1971     139
-# 1992 - 1996      62
-# 1997 - 2001      57
-# 1972 - 1976      55
-# 1982 - 1986      53
-# 1977 - 1981      43
-# 2002 - 2006      36
-# 2007 - 2011      30
-# 1952 - 1961       9
+# apply building mixture signature extracted from Alexandria canal survey to the old suburbs
 
-# from the survey data
-# ndata1.ix[ndata1['suburb']=='ERSKINEVILLE']['PRE1945'].value_counts()
-# Out[29]: 
-# 1    480
-# 0     84
+# Final value suggested by Mark based on the Alexandra canal survey
+#        Pre-1945, Post-1945
+# Timber 0.002, 0.080
+# URM    0.804, 0.114                     
+bldg_mixture = {'Timber_Pre1945': 0.002, 'Timber_Post1945': 0.080,
+                'URM_Pre1945': 0.804, 'URM_Post1945': 0.114}
+value = np.random.choice(bldg_mixture.keys(), size=no_bldgs_in_old_suburbs, 
+	p=bldg_mixture.values())
 
+# assign value
+sydney.loc[idx_old_suburbs, 'BLDG_CLASS'] = value
 
+# before
+# In [37]: sydney['BLDG_CLASS'].value_counts()
+# Out[37]: 
+# Timber_Post1945    921444
+# URM_Post1945       144298
+# Timber_Pre1945         37
+# URM_Pre1945            30
+# dtype: int64
 
-# classify vintage
-data['YEAR_BUILT'].value_counts()
+# after
+# sydney['BLDG_CLASS'].value_counts()
+# Out[57]: 
+# Timber_Post1945    841110
+# URM_Post1945       142872
+# URM_Pre1945         81578
+# Timber_Pre1945        249
 
-# 1992 - 1996    529073
-# 1987 - 1991    488241
-# 1982 - 1986    210332
-# 1962 - 1971    202718
-# 1997 - 2001    140360
-# 1977 - 1981    137135
-# 1972 - 1976    117967
-# 2002 - 2006     96181
-# 2007 - 2011     46330
-# 1952 - 1961     10474
-# 1947 - 1951      3738
+sydney.to_csv('../data/sydney_EQRMrevised_NEXIS2015.csv', index=False)
 
-# Unknown           264
-# 1891 - 1913        36
-# 1914 - 1946        75
-
+# one for ground motion
+sydney_soil = sydney[['LATITUDE', 'LONGITUDE', 'SITE_CLASS']]
+sydney_soil.to_csv('../input/sydney_soil_par_site.csv', index=False)
