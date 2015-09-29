@@ -79,8 +79,8 @@ def plot_gmfield(lat, lon, value, levs, output_file):
     #m.drawlsmask()
     #m.fillcontinents(color='lightgrey',lake_color='white')
     m.drawcountries(linewidth=3)
-    m.drawparallels(np.arange(-34,-33.2,0.2),labels=[1,0,0,0])
-    m.drawmeridians(np.arange(150.0,151.4,0.2),labels=[0,0,0,1])
+    m.drawparallels(np.arange(-34,-33.2,0.25),labels=[1,0,0,0])
+    m.drawmeridians(np.arange(150.0,151.4,0.25),labels=[0,0,0,1])
 
     #xi = np.linspace(llcrnlon,urcrnlon,1000)
     #yi = np.linspace(llcrnlat,urcrnlat,1000)
@@ -97,7 +97,6 @@ def plot_gmfield(lat, lon, value, levs, output_file):
     #cmap = plt.cm.jet(len(levs)-1)
 
     m.scatter(xi, yi, c=value, vmin = levs[0], vmax= levs[-1], cmap=cmap, lw=0)
-
 
     #colorscale = plt.cm.ScalarMappable()
     #colorscale.set_array(value)
@@ -120,9 +119,10 @@ output_file = sys.argv[2]
 (lat, lon, site_tag) = read_lat_lon(eqrm_output_path)
 (pga, sa03, sa10, mmi) = read_gm(eqrm_output_path, site_tag)
 
-plot_gmfield(lat, lon, mmi[:, 0], levs=np.arange(3, 7.0, 0.5), './mmi.png')
-plot_gmfield(lat, lon, sa03[:, 0], levs=np.arange(0.0, 0.55, 0.5), './sa03.png')
-plot_gmfield(lat, lon, sa10[:, 0], levs=np.arange(3, 7.0, 0.5), './sa10.png')
-plot_gmfield(lat, lon, pga[:, 0], levs=np.arange(3, 7.0, 0.5), './pga.png')
+plot_gmfield(lat, lon, mmi[:, 0], np.arange(3, 7.0, 0.5), './mmi.png')
+plot_gmfield(lat, lon, sa03[:, 0], np.arange(0.0, 0.55, 0.05), './sa03.png')
+plot_gmfield(lat, lon, sa10[:, 0], np.arange(0, 0.12, 0.02), './sa10.png')
+plot_gmfield(lat, lon, pga[:, 0], np.arange(0, 0.25, 0.04), './pga.png')
 
-   
+#plot_gmfield(lat, lon, data['LOSS_RATIO'], np.arange(0, 0.14, 0.02),
+    './loss_ratio.png')   
