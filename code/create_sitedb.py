@@ -46,19 +46,34 @@ sydney_boundary = Polygon(shapes[2].points)
 #table = pd.pivot_table(nsw, values="BID", index='SUBURB',\
 #	columns='POSTCODE', aggfunc=len)
 
-# randomly sample 20 buildings of each postcode
-list_postcode = nsw['POSTCODE'].unique()
-tf_sydney_postcode = np.zeros(len(list_postcode), dtype=bool)
-for i, postcode in enumerate(list_postcode):
-	idx = np.where(nsw['POSTCODE']==postcode)[0]
-	no_blds = len(idx)
-	if no_blds > 20:
-		idx = np.random.choice(idx, 20, replace=False)
-	tf_sydney_postcode[i] = checking_inside(idx)
-	print "%s out of 607: %s, %s" %(i, postcode, tf_sydney_postcode[i])
+# randomly sample 10% of buildings of each postcode
+# list_postcode = nsw['POSTCODE'].unique()
+# tf_sydney_postcode = np.zeros(len(list_postcode), dtype=bool)
+# for i, postcode in enumerate(list_postcode):
+# 	idx = np.where(nsw['POSTCODE']==postcode)[0]
+# 	no_sample_blds = int(0.1*len(idx))
+# 	if no_sample_blds > 10:
+# 		idx = np.random.choice(idx, no_sample_blds, replace=False)
+# 	tf_sydney_postcode[i] = checking_inside(idx)
+# 	print "%s out of 607: %s, %s, %s" %(i, postcode, len(idx), tf_sydney_postcode[i])
 
-sydney_postcode = list_postcode[tf_sydney_postcode]
-sydney = nsw.loc[nsw['POSTCODE'].isin(sydney_postcode)].copy()
+# sydney_postcode = list_postcode[tf_sydney_postcode]
+# sydney_wider = nsw.loc[nsw['POSTCODE'].isin(sydney_postcode)].copy()
+# del nsw
+
+# check if each building is within the sydney boundary
+# total_bldgs = len(nsw)
+# tf_sydney = np.zeros(len(nsw), dtype=bool)
+# for i in range(total_bldgs):
+#     point_ = Point(nsw.ix[i]['LONGITUDE'], nsw.ix[i]['LATITUDE'])
+#     tf_sydney[i] = sydney_boundary.contains(point_)
+#     print "%s out of : %s" %(i, total_bldgs)
+
+nsw_point = nsw.apply(lambda row: Point([row['LONGITUDE'], row['LATITUDE']]), axis=1)
+tf_sydney = nsw_point.apply(sydney_boundary.contains)
+
+sydney = nsw[tf_sydney].copy()
+del nsw
 
 # assign new class given GA_class and year_built
 # sydney['YEAR_BUILT'].value_counts()
