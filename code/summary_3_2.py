@@ -9,25 +9,26 @@ compute economic loss for each building for residential buildings in Sydney
         - Suburb vintage (provided by Martin)
     2.2 Extract bldg mixture signature from Alexandria Canal survey data - DONE
 3. read mmi-based vulnerability - DONE
-    3.1 Requires a corresponding set of fragility (creating_fragility.ipynb)
+    3.1 Assess damage state by loss ratio
 4. compute economic loss 
 5. read damage dependent HAZUS casualty model - DONE
-6. compute fatality
+6. compute casualty
 '''
 
 import scipy
 import numpy as np
 import sys
 import os
+import copy
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-def read_hazus_casualty_data(hazus_data_path):
+def read_hazus_casualty_data(hazus_data_path, selected_bldg_class=None):
 
     # read indoor casualty (table13.3 through 13.7)
-    fatality_rate={}
+    casualty_rate={}
     colname = ['Bldg type', 'Severity1', 'Severity2', 'Severity3',\
                'Severity4']
     list_ds = ['slight', 'moderate', 'extensive', 'complete', 'collapse']
@@ -35,8 +36,19 @@ def read_hazus_casualty_data(hazus_data_path):
         fname = os.path.join(hazus_data_path, 'hazus_indoor_casualty_' + ds + '.csv')
         tmp = pd.read_csv(fname, header=0, 
             names=colname, usecols=[1, 2, 3, 4, 5], index_col=0)
-        fatality_rate[ds] = tmp.to_dict()
-    return fatality_rate
+        if selected_bldg_class is not None:
+            okay = tmp.index.isin(selected_bldg_class)
+            casualty_rate[ds] = tmp.ix[okay].to_dict()
+        else:
+            casualty_rate[ds] = tmp.to_dict()
+
+    # no damage
+    casualty_rate['no'] = copy.deepcopy(casualty_rate['slight'])
+    for str_ in ['Severity1', 'Severity2', 'Severity3', 'Severity4']:
+        casualty_rate['no'][str_] = {key: 0 for key, val in \
+        casualty_rate['no']['Severity4'].items()}
+
+    return casualty_rate
 
 def read_hazus_collapse_rate(hazus_data_path):
 
@@ -131,16 +143,35 @@ def compute_vulnerability(mmi, bldg_class):
 
 def plot_vulnerabilty(mmi_range, vul):
     ''' plot vulnerability'''
+
+    mmi_range = np.arange(4.0, 10.0, 0.05)
+
+    vul = {}
+    for bldg in ['Timber_Pre1945', 'Timber_Post1945', 'URM_Pre1945', 'URM_Post1945']:
+        tmp = []
+        for val in mmi_range:
+            tmp.append(compute_vulnerability(val, bldg))
+        vul[bldg] = np.array(tmp)
+
     for bldg in vul.keys():
-        for pre in vul[bldg].keys():
-            label_str = '%s:%s' %(bldg, pre)
-            plt.plot(mmi_range, vul[bldg][pre], label=label_str)
+        label_str = bldg.replace('_',':')
+        plt.plot(mmi_range, vul[bldg], label=label_str)
 
     plt.legend()
     plt.grid(1)
     plt.xlabel('MMI')
     plt.ylabel('Loss ratio')
 
+def compute_casualty(casualty_rate, damage_state, bldg_class, population):
+
+    casualty = np.zeros((4))
+    for i in range(4):
+        severity_str = 'Severity' + str(i+1)
+        rate_ = casualty_rate[damage_state][severity_str][bldg_class]*0.01
+        casualty[i] = population*rate_
+
+    return pd.Series({'Severity1': casualty[0], 'Severity2': casualty[1], 
+        'Severity3': casualty[2], 'Severity4': casualty[3]})
 
 ###############################################################################
 # main 
@@ -159,10 +190,11 @@ data = \
 (_, _, _, mmi) = read_gm(eqrm_output_path, site_tag='sydney_soil')
 
 # read hazus indoor casualty data
-fatality_rate = read_hazus_casualty_data(data_path)
+casualty_rate = read_hazus_casualty_data(data_path,\
+    selected_bldg_class = data['BLDG_CLASS'].unique())
 
 # read hazus collapse rate data
-collapse_rate = read_hazus_collapse_rate(data_path)
+#collapse_rate = read_hazus_collapse_rate(data_path)
 
 # combine mmi
 data['MMI'] = pd.Series(mmi[:,0], index=data.index)
@@ -185,22 +217,36 @@ data['MMI'] = pd.Series(mmi[:,0], index=data.index)
 #   flag_timber=data['FLAG_TIMBER'], 
 #   flag_pre=data['FLAG_PRE'])
 
+# for name, group in data.groupby('BLDG_CLASS'):
+
+#     tmp = group.apply(lambda row: compute_vulnerability(row['MMI'], name), axis=1)
+#     data['new'] = pd.Series(data=tmp, index=tmp.index)
+
 data['LOSS_RATIO'] = data.apply(lambda row: compute_vulnerability(
     row['MMI'], row['BLDG_CLASS']), axis=1)
 
-#nsw_point = data.apply(lambda row: Point([row['LONGITUDE'], row['LATITUDE']]), axis=1)
-#tf_sydney = nsw_point.apply(sydney_boundary.contains)
+data['LOSS'] = data['LOSS_RATIO'] * data['TOTAL_COST']
 
-# LOSS_RATIO = 0 if MMI <=4.0 
+# mean loss ratio by suburb
+mean_loss_ratio_by_suburb = {}
+for name, group in data.groupby('SUBURB'):
+    mean_loss_ratio_by_suburb[name] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
 
+data['DAMAGE'] = pd.cut(data['LOSS_RATIO'], [-1.0, 0.02, 0.1, 0.5, 1.0], 
+    labels=['no','slight','moderate','extensive'])
 
-#data[data['STRUCTURE_CLASSIFICATION'].str.contains("W1", na=False)]
+casualty = data.apply(lambda row: compute_casualty(
+    casualty_rate, row['DAMAGE'], row['BLDG_CLASS'], row['POPULATION']), axis=1)
 
-#pd.Series('W1', index=data.index)
-#data.ix[data.STRUCTURE_CLASSIFICATION=='URMLMETAL' & data.PRE1989==1,\
-#'BLDG_TYPE'] ='URML_PRE'
-#data.ix[data.STRUCTURE_CLASSIFICATION=='URMLTILE', 'BLDG_TYPE'] ='URML'
-#data.ix[data.STRUCTURE_CLASSIFICATION=='URMMMETAL', 'BLDG_TYPE'] ='URML'
-#data.ix[data.STRUCTURE_CLASSIFICATION=='URMMTILE', 'BLDG_TYPE'] ='URML'
+# casualty total
+casualty.sum()
+# Severity1    277.163146
+# Severity2     65.053009
+# Severity3      0.162633
+# Severity4      0.162633
+# dtype: float64
 
-#
+# casualty by suburbs
+casualty_by_suburb = pd.DataFrame(index=['Severity'+str(i))
+for name, group in data.groupby('SUBURB'):
+    tmp = casualty.ix[group.index].sum()
