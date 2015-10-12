@@ -164,12 +164,13 @@ def plot_vulnerabilty(mmi_range, vul):
 
 def compute_casualty(casualty_rate, damage_state, bldg_class, population):
 
-    casualty = np.zeros((4))
-    for i in range(4):
-        severity_str = 'Severity' + str(i+1)
-        rate_ = casualty_rate[damage_state][severity_str][bldg_class]*0.01
-        casualty[i] = population*rate_
-
+    # casualty = np.zeros((4))
+    # for i in range(4):
+    #     severity_str = 'Severity' + str(i+1)
+    #     rate_ = casualty_rate[damage_state][severity_str][bldg_class]*0.01
+    #     casualty[i] = np.round(population*rate_)
+    casualty = [ population*casualty_rate[damage_state][
+        'Severity'+str(i)][bldg_class]*0.01 for i in range(1, 5) ]
     return pd.Series({'Severity1': casualty[0], 'Severity2': casualty[1], 
         'Severity3': casualty[2], 'Severity4': casualty[3]})
 
@@ -222,21 +223,30 @@ data['MMI'] = pd.Series(mmi[:,0], index=data.index)
 #     tmp = group.apply(lambda row: compute_vulnerability(row['MMI'], name), axis=1)
 #     data['new'] = pd.Series(data=tmp, index=tmp.index)
 
-data['LOSS_RATIO'] = data.apply(lambda row: compute_vulnerability(
+okay = data['MMI'] > 4.0
+data.loc[~okay, 'LOSS_RATIO'] = 0.0
+data.loc[okay, 'LOSS_RATIO'] = data.ix[okay].apply(lambda row: compute_vulnerability(
     row['MMI'], row['BLDG_CLASS']), axis=1)
 
 data['LOSS'] = data['LOSS_RATIO'] * data['TOTAL_COST']
 
 # mean loss ratio by suburb
-mean_loss_ratio_by_suburb = {}
+data_by_suburb = pd.DataFrame(columns=['MEAN_LOSS_RATIO'])
 for name, group in data.groupby('SUBURB'):
-    mean_loss_ratio_by_suburb[name] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
+    data_by_suburb.loc[name, 'MEAN_LOSS_RATIO'] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
+
+print("Loss computed")
 
 data['DAMAGE'] = pd.cut(data['LOSS_RATIO'], [-1.0, 0.02, 0.1, 0.5, 1.0], 
     labels=['no','slight','moderate','extensive'])
 
-casualty = data.apply(lambda row: compute_casualty(
+okay = data['DAMAGE'] != 'no'
+casualty = pd.DataFrame(index=data.index, columns=['Severity'+str(i) for i in range(1, 5)])
+tmp = data.ix[okay].apply(lambda row: compute_casualty(
     casualty_rate, row['DAMAGE'], row['BLDG_CLASS'], row['POPULATION']), axis=1)
+casualty.loc[okay] = tmp
+
+print("Casualty computed")
 
 # casualty total
 casualty.sum()
@@ -247,6 +257,10 @@ casualty.sum()
 # dtype: float64
 
 # casualty by suburbs
-casualty_by_suburb = pd.DataFrame(index=['Severity'+str(i))
+tmp = pd.DataFrame(columns=['Severity'+str(i) for i in range(1, 5)])
 for name, group in data.groupby('SUBURB'):
-    tmp = casualty.ix[group.index].sum()
+    tmp = tmp.append(pd.DataFrame({name: casualty.ix[group.index].sum()}).transpose())
+
+data_by_suburb = data_by_suburb.join(tmp)
+
+
