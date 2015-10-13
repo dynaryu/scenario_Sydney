@@ -263,4 +263,5 @@ for name, group in data.groupby('SUBURB'):
 
 data_by_suburb = data_by_suburb.join(tmp)
 
+data_by_suburb_zero = data_by_suburb.fillna(0)
 
