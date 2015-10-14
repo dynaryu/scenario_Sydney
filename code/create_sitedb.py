@@ -7,14 +7,14 @@ from shapely.geometry import Polygon
 from shapely.geometry import Point
 import numpy as np
 
-def checking_inside(idx):
+# def checking_inside(idx):
 
-	tf_sydney = np.zeros(len(idx), dtype=bool)
-	for i, ix in enumerate(idx):
-	    point_ = Point(nsw.ix[ix]['LONGITUDE'], nsw.ix[ix]['LATITUDE'])
-	    tf_sydney[i] = sydney_boundary.contains(point_)
+# 	tf_sydney = np.zeros(len(idx), dtype=bool)
+# 	for i, ix in enumerate(idx):
+# 	    point_ = Point(nsw.ix[ix]['LONGITUDE'], nsw.ix[ix]['LATITUDE'])
+# 	    tf_sydney[i] = sydney_boundary.contains(point_)
 
-	return np.any(tf_sydney)    
+# 	return np.any(tf_sydney)    
 
 def convert_to_float(string):
 	val = string.split('-')[-1]
@@ -28,20 +28,14 @@ working_path = os.path.join(os.path.expanduser("~"),'Projects/scenario_Sydney')
 data_path = os.path.join(working_path, 'data')
 
 # Read NSW building data
-try:   
-    nsw = pd.read_csv('/Volumes/NTFS/NSW_EQRMrevised_NEXIS2015.csv')
-except IOError:
-    nsw = pd.read_csv('/media/hyeuk/NTFS/NSW_EQRMrevised_NEXIS2015.csv')
-except IOError:
-    print "No USB"
+nsw = pd.read_csv(os.path.join(data_path, 'NSW_EQRMrevised_NEXIS2015.csv'))
+nsw['SA1_CODE_STR'] = nsw['SA1_CODE'].apply(lambda x: "%.0f" % x)
 
 # Read the admin boundary of Greater Sydney
-sf = shapefile.Reader(os.path.join(working_path, 'data/GCCSA_2011_AUST.shp'))
-shapes = sf.shapes()
-records = sf.records()
-#records[2] corresponds to the Greater Sydney
-
-sydney_boundary = Polygon(shapes[2].points)
+sydney = shapefile.Reader(os.path.join(data_path,
+	'sydney_sa1/Export_Output.shp'))
+records = sydney.records()
+sydney_sa1 = [x[0] for x in records]
 
 #table = pd.pivot_table(nsw, values="BID", index='SUBURB',\
 #	columns='POSTCODE', aggfunc=len)
@@ -55,7 +49,8 @@ sydney_boundary = Polygon(shapes[2].points)
 # 	if no_sample_blds > 10:
 # 		idx = np.random.choice(idx, no_sample_blds, replace=False)
 # 	tf_sydney_postcode[i] = checking_inside(idx)
-# 	print "%s out of 607: %s, %s, %s" %(i, postcode, len(idx), tf_sydney_postcode[i])
+# 	print "%s out of 607: %s, %s, %s" %(i, postcode, len(idx), 
+#	tf_sydney_postcode[i])
 
 # sydney_postcode = list_postcode[tf_sydney_postcode]
 # sydney_wider = nsw.loc[nsw['POSTCODE'].isin(sydney_postcode)].copy()
@@ -69,8 +64,9 @@ sydney_boundary = Polygon(shapes[2].points)
 #     tf_sydney[i] = sydney_boundary.contains(point_)
 #     print "%s out of : %s" %(i, total_bldgs)
 
-nsw_point = nsw.apply(lambda row: Point([row['LONGITUDE'], row['LATITUDE']]), axis=1)
-tf_sydney = nsw_point.apply(sydney_boundary.contains)
+#nsw_point = nsw.apply(lambda row: Point([row['LONGITUDE'], row['LATITUDE']]),
+#	axis=1)
+tf_sydney = nsw['SA1_CODE_STR'].isin(sydney_sa1)
 
 sydney = nsw[tf_sydney].copy()
 del nsw
@@ -95,7 +91,8 @@ sydney.loc[idx_URM_post1945, 'BLDG_CLASS'] = 'URM_Post1945'
 
 # Read the list of old suburbs
 suburb_vintage = pd.read_excel(os.path.join(
-       data_path, 'List_of_Sydney_postcodes.xlsx'), sheetname="Postcodes-Suburbs", skiprows=1)
+       data_path, 'List_of_Sydney_postcodes.xlsx'),\
+       sheetname="Postcodes-Suburbs", skiprows=1)
 idx_old_suburbs = pd.notnull(suburb_vintage['Alexandra Canal?'])
 old_suburbs = suburb_vintage.ix[idx_old_suburbs]['Suburbs'].str.upper()
 old_suburbs = old_suburbs.tolist()
@@ -138,8 +135,10 @@ sydney.loc[idx_old_suburbs, 'BLDG_CLASS'] = value
 # URM_Pre1945         81578
 # Timber_Pre1945        249
 
-sydney.to_csv('../data/sydney_EQRMrevised_NEXIS2015.csv', index=False)
+sydney.to_csv(os.path.join(working_path,'input/sydney_EQRMrevised_NEXIS2015.csv'),
+	index=False)
 
 # one for ground motion
 sydney_soil = sydney[['LATITUDE', 'LONGITUDE', 'SITE_CLASS']]
-sydney_soil.to_csv('../input/sydney_soil_par_site.csv', index=False)
+sydney_soil.to_csv(os.path.join(working_path,'input/sydney_soil_par_site.csv'),
+	index=False)

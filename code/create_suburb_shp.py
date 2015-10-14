@@ -59,3 +59,11 @@ w.save(os.path.join(data_path,'sydney_suburbs_polygon.shp'))
 # w.field('SECOND_FLD','C','40')
 # w.record('First','Polygon')
 # w.save('polygon.shp')
+
+# create point shapefile for epicentre
+w = shapefile.Writer(shapefile.POINT)
+w.point(151.153, -33.914, 0, 0)
+w.field('FIRST_FLD')
+w.field('SECOND_FLD','C','40')
+w.record('First','Point')
+w.save(os.path.join(data_path,'sydney_epicentre.shp'))

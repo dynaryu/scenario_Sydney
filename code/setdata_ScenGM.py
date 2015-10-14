@@ -31,13 +31,13 @@ input_dir = join(working_path, 'input')
 output_dir = join(working_path, 'scen_gmMw5.0')
 del working_path
 use_site_indexes = False #True
-site_indexes = [2997, 2657, 3004, 3500]
+site_indexes = []
 zone_source_tag = ""
 event_control_tag = ""
 
 # Scenario input
 scenario_azimuth = 330
-scenario_depth = 7.0 #10.0
+scenario_depth = 7.0
 scenario_latitude = -33.914
 scenario_longitude = 151.153
 scenario_magnitude = 5.0 #5.4
@@ -50,7 +50,7 @@ scenario_number_of_events = 1
 atten_models = ['Somerville09_Non_Cratonic','Akkar_2010_crustal','Campbell08' ]
 atten_model_weights = [0.4, 0.2, 0.4]
 atten_collapse_Sa_of_atten_models = True
-atten_periods = arange(0.0,3.4,0.05) #hyeuk
+atten_periods = [0.0, 0.3, 1.0] #hyeuk
 atten_variability_method = None
 atten_threshold_distance = 400
 atten_override_RSA_shape = None
