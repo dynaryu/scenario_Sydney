@@ -187,6 +187,8 @@ data = \
     read_sitedb_data(os.path.join(data_path,
         'sydney_EQRMrevised_NEXIS2015.csv'))
 
+data['SA1_CODE'] = data['SA1_CODE'].astype(np.int64)
+
 # read gmotion
 (_, _, _, mmi) = read_gm(eqrm_output_path, site_tag='sydney_soil')
 
@@ -230,10 +232,10 @@ data.loc[okay, 'LOSS_RATIO'] = data.ix[okay].apply(lambda row: compute_vulnerabi
 
 data['LOSS'] = data['LOSS_RATIO'] * data['TOTAL_COST']
 
-# mean loss ratio by suburb
-data_by_suburb = pd.DataFrame(columns=['MEAN_LOSS_RATIO'])
-for name, group in data.groupby('SUBURB'):
-    data_by_suburb.loc[name, 'MEAN_LOSS_RATIO'] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
+# mean loss ratio by SA1
+data_by_SA1 = pd.DataFrame(columns=['MEAN_LOSS_RATIO'])
+for name, group in data.groupby('SA1_CODE'):
+    data_by_SA1.loc[name, 'MEAN_LOSS_RATIO'] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
 
 print("Loss computed")
 
@@ -258,10 +260,10 @@ casualty.sum()
 
 # casualty by suburbs
 tmp = pd.DataFrame(columns=['Severity'+str(i) for i in range(1, 5)])
-for name, group in data.groupby('SUBURB'):
+for name, group in data.groupby('SA1_CODE'):
     tmp = tmp.append(pd.DataFrame({name: casualty.ix[group.index].sum()}).transpose())
 
-data_by_suburb = data_by_suburb.join(tmp)
+data_by_SA1 = data_by_SA1.join(tmp)
+data_by_SA1_zero = data_by_SA1.fillna(0)
 
-data_by_suburb_zero = data_by_suburb.fillna(0)
-
+data_by_SA1_zero.to_csv(os.path.join(data_path,'result_by_SA1.csv'))
