@@ -21,9 +21,9 @@ import sys
 import os
 import copy
 import pandas as pd
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+#import matplotlib
+#matplotlib.use('Agg')
+#import matplotlib.pyplot as plt
 
 def read_hazus_casualty_data(hazus_data_path, selected_bldg_class=None):
 
@@ -50,18 +50,23 @@ def read_hazus_casualty_data(hazus_data_path, selected_bldg_class=None):
 
     return casualty_rate
 
-def read_hazus_collapse_rate(hazus_data_path):
+def read_hazus_collapse_rate(hazus_data_path, selected_bldg_class=None):
 
     # read collapse rate (table 13.8)
     fname = os.path.join(hazus_data_path, 'hazus_collapse_rate.csv')
     collapse_rate = pd.read_csv(fname, skiprows=1, names=['Bldg type','rate'], 
                 index_col=0, usecols=[1, 2])
+    removed_bldg_class = (set(collapse_rate.keys())).difference(set(
+        selected_bldg_class))
+
+    [collapse_rate.pop(item) if item selected_bldg_class is not None:
+
     return collapse_rate.to_dict()['rate']
 
 def read_sitedb_data(sitedb_file):
     ''' read sitedb file '''
 
-    data = pd.read_csv(sitedb_file)
+    data = pd.read_csv(sitedb_file, dtype={'SA1_CODE_STR': str})
     data['BLDG_COST'] = data['BUILDING_COST_DENSITY'] * data['FLOOR_AREA']\
        * data['SURVEY_FACTOR']
     data['CONTENTS_COST'] = data['CONTENTS_COST_DENSITY'] * data['FLOOR_AREA']\
@@ -181,23 +186,25 @@ working_path = os.path.join(os.path.expanduser("~"),'Projects/scenario_Sydney')
 eqrm_input_path = os.path.join(working_path, 'input')
 eqrm_output_path = os.path.join(working_path, 'scen_gmMw5.0')
 data_path = os.path.join(working_path, 'data')
+hazus_data_path = os.path.join(data_path, 'hazus')
 
 # read inventory
 data = \
     read_sitedb_data(os.path.join(data_path,
         'sydney_EQRMrevised_NEXIS2015.csv'))
 
-data['SA1_CODE'] = data['SA1_CODE'].astype(np.int64)
+#data['SA1_CODE'] = data['SA1_CODE'].astype(np.int64)
 
 # read gmotion
 (_, _, _, mmi) = read_gm(eqrm_output_path, site_tag='sydney_soil')
 
 # read hazus indoor casualty data
-casualty_rate = read_hazus_casualty_data(data_path,\
+casualty_rate = read_hazus_casualty_data(hazus_data_path,\
     selected_bldg_class = data['BLDG_CLASS'].unique())
 
 # read hazus collapse rate data
-#collapse_rate = read_hazus_collapse_rate(data_path)
+collapse_rate = read_hazus_collapse_rate(hazus_data_path,\
+    selected_bldg_class = data['BLDG_CLASS'].unique())
 
 # combine mmi
 data['MMI'] = pd.Series(mmi[:,0], index=data.index)
@@ -234,13 +241,13 @@ data['LOSS'] = data['LOSS_RATIO'] * data['TOTAL_COST']
 
 # mean loss ratio by SA1
 data_by_SA1 = pd.DataFrame(columns=['MEAN_LOSS_RATIO'])
-for name, group in data.groupby('SA1_CODE'):
+for name, group in data.groupby('SA1_CODE_STR'):
     data_by_SA1.loc[name, 'MEAN_LOSS_RATIO'] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
 
 print("Loss computed")
 
-data['DAMAGE'] = pd.cut(data['LOSS_RATIO'], [-1.0, 0.02, 0.1, 0.5, 1.0], 
-    labels=['no','slight','moderate','extensive'])
+data['DAMAGE'] = pd.cut(data['LOSS_RATIO'], [-1.0, 0.02, 0.1, 0.5, 0.8, 1.1], 
+    labels=['no','slight','moderate','extensive, complte'])
 
 okay = data['DAMAGE'] != 'no'
 casualty = pd.DataFrame(index=data.index, columns=['Severity'+str(i) for i in range(1, 5)])
@@ -260,10 +267,14 @@ casualty.sum()
 
 # casualty by suburbs
 tmp = pd.DataFrame(columns=['Severity'+str(i) for i in range(1, 5)])
-for name, group in data.groupby('SA1_CODE'):
+for name, group in data.groupby('SA1_CODE_STR'):
     tmp = tmp.append(pd.DataFrame({name: casualty.ix[group.index].sum()}).transpose())
 
 data_by_SA1 = data_by_SA1.join(tmp)
-data_by_SA1_zero = data_by_SA1.fillna(0)
 
-data_by_SA1_zero.to_csv(os.path.join(data_path,'result_by_SA1.csv'))
+for name, group in data.groupby('SA1_CODE_STR'):
+    count_by_bldg = group['BLDG_CLASS'].value_counts()
+    data_by_SA1.loc[name, 'MAJOR_BLDG'] = count_by_bldg.argmax()
+
+data_by_SA1_zero = data_by_SA1.fillna(0)
+data_by_SA1_zero.to_csv(os.path.join(data_path,'result_by_SA1.csv'), index_label='SA1_CODE')
