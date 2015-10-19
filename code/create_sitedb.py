@@ -29,7 +29,7 @@ data_path = os.path.join(working_path, 'data')
 
 # Read NSW building data
 nsw = pd.read_csv(os.path.join(data_path, 'NSW_EQRMrevised_NEXIS2015.csv'))
-nsw['SA1_CODE_STR'] = nsw['SA1_CODE'].apply(lambda x: "%.0f" % x)
+nsw['SA1_CODE'] = nsw['SA1_CODE'].apply(lambda x: "%.0f" % x)
 
 # Read the admin boundary of Greater Sydney
 sydney = shapefile.Reader(os.path.join(data_path,
@@ -66,7 +66,8 @@ sydney_sa1 = [x[0] for x in records]
 
 #nsw_point = nsw.apply(lambda row: Point([row['LONGITUDE'], row['LATITUDE']]),
 #	axis=1)
-tf_sydney = nsw['SA1_CODE_STR'].isin(sydney_sa1)
+tf_sydney = nsw['SA1_CODE'].isin(sydney_sa1)
+# tf_sydney.sum()
 
 sydney = nsw[tf_sydney].copy()
 del nsw
@@ -112,6 +113,8 @@ no_bldgs_in_old_suburbs = sum(idx_old_suburbs)
 # URM    0.804, 0.114                     
 bldg_mixture = {'Timber_Pre1945': 0.002, 'Timber_Post1945': 0.080,
                 'URM_Pre1945': 0.804, 'URM_Post1945': 0.114}
+
+np.random.seed(999) # to make sure the identical file is created
 value = np.random.choice(bldg_mixture.keys(), size=no_bldgs_in_old_suburbs, 
 	p=bldg_mixture.values())
 
@@ -135,10 +138,13 @@ sydney.loc[idx_old_suburbs, 'BLDG_CLASS'] = value
 # URM_Pre1945         81578
 # Timber_Pre1945        249
 
-sydney.to_csv(os.path.join(working_path,'input/sydney_EQRMrevised_NEXIS2015.csv'),
-	index=False)
+file_ = os.path.join(working_path,'data/sydney_EQRMrevised_NEXIS2015.csv')
+sydney.to_csv(file_, index=False)
+print("%s is created successfully." %file_)
 
 # one for ground motion
 sydney_soil = sydney[['LATITUDE', 'LONGITUDE', 'SITE_CLASS']]
-sydney_soil.to_csv(os.path.join(working_path,'input/sydney_soil_par_site.csv'),
-	index=False)
+file_ = os.path.join(working_path,'input/sydney_soil_par_site.csv')
+sydney_soil.to_csv(file_, index=False)
+print("%s is created successfully." %file_)
+

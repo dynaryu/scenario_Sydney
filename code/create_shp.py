@@ -6,6 +6,7 @@ from shapely.geometry import Point
 import numpy as np
 from mpl_toolkits.basemap import Basemap
 
+# Note that it works but not so efficient as arcGIS.
 working_path = os.path.join(os.path.expanduser("~"),'Projects/scenario_Sydney')
 data_path = os.path.join(working_path, 'data')
 
@@ -28,13 +29,6 @@ tf_sydney = np.zeros((len(nsw_shapes)), dtype=bool)
 for i in range(len(nsw_shapes)):
 	a0 = Polygon(nsw_shapes[i].points)
 	tf_sydney[i] = sydney_boundary.intersects(a0)
-
-
-# find suburbs in sydney boundary
-tf_sydney = np.zeros((len(nsw_shapes)), dtype=bool)
-for i in range(len(nsw_shapes)):
-	a0 = Polygon(nsw_shapes[i].points)
-	tf_sydney[i] = sydney_boundary.contains(a0) or sydney_boundary.intersects(a0)
 
 # make output shapefile
 w = shapefile.Writer(shapefile.POLYGON)

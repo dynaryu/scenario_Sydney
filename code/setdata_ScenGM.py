@@ -30,7 +30,8 @@ site_db_tag = ""
 return_periods = [10, 50]
 input_dir = join(working_path, 'input')
 #output_dir = join(working_path, 'scen_gmMw5.0')
-output_dir = join(working_path, 'rock_gmMw5.0')
+#output_dir = join(working_path, 'rock_gmMw5.0')
+output_dir = join(working_path, 'gmMw5.0')
 del working_path
 use_site_indexes = False #True
 site_indexes = []
@@ -62,7 +63,7 @@ atten_smooth_spectral_acceleration = None
 atten_log_sigma_eq_weight = 0
 
 # Amplification
-use_amplification = False #True
+use_amplification = True
 amp_variability_method = None
 amp_min_factor = 0.6
 amp_max_factor = 10000
