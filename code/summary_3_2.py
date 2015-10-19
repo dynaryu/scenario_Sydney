@@ -10,12 +10,12 @@ compute economic loss for each building for residential buildings in Sydney
     2.2 Extract bldg mixture signature from Alexandria Canal survey data - DONE
 3. read mmi-based vulnerability - DONE
     3.1 Assess damage state by loss ratio
-4. compute economic loss 
-5. read damage dependent HAZUS casualty model - DONE
-6. compute casualty
+4. compute mean loss ratio 
+5. save it for further calculation
 '''
 
 import scipy
+from scipy import stats
 import numpy as np
 import sys
 import os
@@ -24,44 +24,6 @@ import pandas as pd
 #import matplotlib
 #matplotlib.use('Agg')
 #import matplotlib.pyplot as plt
-
-def read_hazus_casualty_data(hazus_data_path, selected_bldg_class=None):
-
-    # read indoor casualty (table13.3 through 13.7)
-    casualty_rate={}
-    colname = ['Bldg type', 'Severity1', 'Severity2', 'Severity3',\
-               'Severity4']
-    list_ds = ['slight', 'moderate', 'extensive', 'complete', 'collapse']
-    for ds in list_ds:
-        fname = os.path.join(hazus_data_path, 'hazus_indoor_casualty_' + ds + '.csv')
-        tmp = pd.read_csv(fname, header=0, 
-            names=colname, usecols=[1, 2, 3, 4, 5], index_col=0)
-        if selected_bldg_class is not None:
-            okay = tmp.index.isin(selected_bldg_class)
-            casualty_rate[ds] = tmp.ix[okay].to_dict()
-        else:
-            casualty_rate[ds] = tmp.to_dict()
-
-    # no damage
-    casualty_rate['no'] = copy.deepcopy(casualty_rate['slight'])
-    for str_ in ['Severity1', 'Severity2', 'Severity3', 'Severity4']:
-        casualty_rate['no'][str_] = {key: 0 for key, val in \
-        casualty_rate['no']['Severity4'].items()}
-
-    return casualty_rate
-
-def read_hazus_collapse_rate(hazus_data_path, selected_bldg_class=None):
-
-    # read collapse rate (table 13.8)
-    fname = os.path.join(hazus_data_path, 'hazus_collapse_rate.csv')
-    collapse_rate = pd.read_csv(fname, skiprows=1, names=['Bldg type','rate'], 
-                index_col=0, usecols=[1, 2])
-    removed_bldg_class = (set(collapse_rate.keys())).difference(set(
-        selected_bldg_class))
-
-    [collapse_rate.pop(item) if item selected_bldg_class is not None:
-
-    return collapse_rate.to_dict()['rate']
 
 def read_sitedb_data(sitedb_file):
     ''' read sitedb file '''
@@ -103,7 +65,6 @@ def read_gm(eqrm_output_path, site_tag):
     mmi = rsa2mmi_array(sa10, period=1.0)
 
     return(pga, sa03, sa10, mmi)
-
 
 def compute_vulnerability(mmi, bldg_class):
 
@@ -167,18 +128,6 @@ def plot_vulnerabilty(mmi_range, vul):
     plt.xlabel('MMI')
     plt.ylabel('Loss ratio')
 
-def compute_casualty(casualty_rate, damage_state, bldg_class, population):
-
-    # casualty = np.zeros((4))
-    # for i in range(4):
-    #     severity_str = 'Severity' + str(i+1)
-    #     rate_ = casualty_rate[damage_state][severity_str][bldg_class]*0.01
-    #     casualty[i] = np.round(population*rate_)
-    casualty = [ population*casualty_rate[damage_state][
-        'Severity'+str(i)][bldg_class]*0.01 for i in range(1, 5) ]
-    return pd.Series({'Severity1': casualty[0], 'Severity2': casualty[1], 
-        'Severity3': casualty[2], 'Severity4': casualty[3]})
-
 ###############################################################################
 # main 
 
@@ -197,14 +146,6 @@ data = \
 
 # read gmotion
 (_, _, _, mmi) = read_gm(eqrm_output_path, site_tag='sydney_soil')
-
-# read hazus indoor casualty data
-casualty_rate = read_hazus_casualty_data(hazus_data_path,\
-    selected_bldg_class = data['BLDG_CLASS'].unique())
-
-# read hazus collapse rate data
-collapse_rate = read_hazus_collapse_rate(hazus_data_path,\
-    selected_bldg_class = data['BLDG_CLASS'].unique())
 
 # combine mmi
 data['MMI'] = pd.Series(mmi[:,0], index=data.index)
@@ -232,49 +173,14 @@ data['MMI'] = pd.Series(mmi[:,0], index=data.index)
 #     tmp = group.apply(lambda row: compute_vulnerability(row['MMI'], name), axis=1)
 #     data['new'] = pd.Series(data=tmp, index=tmp.index)
 
-okay = data['MMI'] > 4.0
-data.loc[~okay, 'LOSS_RATIO'] = 0.0
+okay = data[data['MMI'] > 4.0].index
 data.loc[okay, 'LOSS_RATIO'] = data.ix[okay].apply(lambda row: compute_vulnerability(
     row['MMI'], row['BLDG_CLASS']), axis=1)
 
-data['LOSS'] = data['LOSS_RATIO'] * data['TOTAL_COST']
-
-# mean loss ratio by SA1
-data_by_SA1 = pd.DataFrame(columns=['MEAN_LOSS_RATIO'])
-for name, group in data.groupby('SA1_CODE_STR'):
-    data_by_SA1.loc[name, 'MEAN_LOSS_RATIO'] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
-
-print("Loss computed")
-
-data['DAMAGE'] = pd.cut(data['LOSS_RATIO'], [-1.0, 0.02, 0.1, 0.5, 0.8, 1.1], 
-    labels=['no','slight','moderate','extensive, complte'])
-
-okay = data['DAMAGE'] != 'no'
-casualty = pd.DataFrame(index=data.index, columns=['Severity'+str(i) for i in range(1, 5)])
-tmp = data.ix[okay].apply(lambda row: compute_casualty(
-    casualty_rate, row['DAMAGE'], row['BLDG_CLASS'], row['POPULATION']), axis=1)
-casualty.loc[okay] = tmp
-
-print("Casualty computed")
-
-# casualty total
-casualty.sum()
-# Severity1    277.163146
-# Severity2     65.053009
-# Severity3      0.162633
-# Severity4      0.162633
-# dtype: float64
-
-# casualty by suburbs
-tmp = pd.DataFrame(columns=['Severity'+str(i) for i in range(1, 5)])
-for name, group in data.groupby('SA1_CODE_STR'):
-    tmp = tmp.append(pd.DataFrame({name: casualty.ix[group.index].sum()}).transpose())
-
-data_by_SA1 = data_by_SA1.join(tmp)
-
-for name, group in data.groupby('SA1_CODE_STR'):
-    count_by_bldg = group['BLDG_CLASS'].value_counts()
-    data_by_SA1.loc[name, 'MAJOR_BLDG'] = count_by_bldg.argmax()
-
-data_by_SA1_zero = data_by_SA1.fillna(0)
-data_by_SA1_zero.to_csv(os.path.join(data_path,'result_by_SA1.csv'), index_label='SA1_CODE')
+# clean up data and save
+selected_columns = ['BID', 'SA1_CODE', 'POPULATION', 'BLDG_CLASS',\
+    'TOTAL_COST', 'LOSS_RATIO']
+ndata = data[selected_columns]
+file_ = os.path.join(data_path,'loss_ratio_by_bldg.csv')
+ndata.to_csv(file_, index=False)
+print("%s is created" %file_)
