@@ -48,7 +48,7 @@ def sample_vulnerability(mean_lratio, nsample=1000, cov=1.0):
 
     return sample
 
-    def assign_damage_state(df_sample, damage_thresholds, damage_labels):
+def assign_damage_state(df_sample, damage_thresholds, damage_labels):
 
         df_damage = pd.cut(df_sample, damage_thresholds, 
             labels=damage_labels)
@@ -159,24 +159,27 @@ df_damage = pd.DataFrame(index=okay, columns=range(nsample)) #, dtype=str)
 for i in range(nsample):
     df_damage[i] = pd.cut(sample[i, :], damage_thresholds, 
     labels=damage_labels)
+    df_damage[i].cat.add_categories(['collapse'])
 
 df_damage['BLDG_CLASS'] = data.loc[okay, 'BLDG_CLASS']
 
-# processing by bldg
+# processing by bldg class
 for name, group in df_damage.groupby('BLDG_CLASS'):
     prob_collapse = collapse_rate[name]*1.0e-2
     group_array = group.values[:,:-1]
-    (idx_x, idx_y) = np.where(group.values == 'complete')
-    ncomplete = len(idx_x)
+    (idx_complete, idy_complete) = np.where(group_array == 'complete')
+    ncomplete = len(idx_complete)
 
-    temp = np.random.choice(['complete', 'collapse'], size=ncomplete, replace=True,\
+    temp = np.random.choice(['complete', 'collapse'], size=ncomplete,\
         p=[1-prob_collapse, prob_collapse])
 
     idx_collapse = np.where(temp=='collapse')[0]
-    for item in idx_collapse:
-        df_damage.loc[idx_group[idx_x[item]], idx_y[item]] = 'collapse'
+    for i in idx_collapse:
+        print "%s will be changed to complete" %df_damage.loc[idx_group[idx_complete[i]], idy_complete[i]]
 
-    data_by_SA1.loc[name, 'MEAN_LOSS_RATIO'] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
+        df_damage.loc[idx_group[idx_complete[i]], idy_complete[i]] = 'collapse'
+
+data_by_SA1.loc[name, 'MEAN_LOSS_RATIO'] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
 
 
 ncomplete = len(idx_x)
