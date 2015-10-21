@@ -1,3 +1,10 @@
+import scipy
+from scipy import stats
+import numpy as np
+import sys
+import os
+import copy
+import pandas as pd
 
 def sample_vulnerability(mean_lratio, nsample=1000, cov=1.0):
 
@@ -48,35 +55,56 @@ def sample_vulnerability(mean_lratio, nsample=1000, cov=1.0):
 
     return sample
 
-def assign_damage_state(df_sample, damage_thresholds, damage_labels):
+def assign_damage_state(data, okay, sample, damage_thresholds, damage_labels):
 
-        df_damage = pd.cut(df_sample, damage_thresholds, 
-            labels=damage_labels)
+    nsample = sample.shape[0]
+    df_damage = pd.DataFrame(index=okay, columns=range(nsample)) #, dtype=str)
+    
+    # assign damage by loss ratio
+    for i in range(nsample):
+        df_damage[i] = pd.cut(sample[i, :], damage_thresholds, 
+        labels=damage_labels)
+        df_damage[i] = df_damage[i].cat.add_categories(['collapse'])
 
-    # sample['DAMAGE'] = sample['DAMAGE'].astype(str)
+    df_damage['BLDG_CLASS'] = data.loc[okay, 'BLDG_CLASS']
 
-    # # split complete either complete w/ collapse and complete w/o collapse
-    # idx_complete = sample[sample['DAMAGE'] == 'complete'].index
-    # ncomplete = len(idx_complete)
+    # assign collapse
+    for name, group in df_damage.groupby('BLDG_CLASS'):
+        idx_group = group.index
+        group_array = group.values[:, :-1]
 
-    # if ncomplete > 2:
-    #     sample.loc[idx_complete, 'DAMAGE']  = \
-    #         np.random.choice(['complete','collapse'], ncomplete,\
-    #             p=[1-prob_collapse, prob_collapse])
+        prob_collapse = collapse_rate[name]*1.0e-2
+        (idx_complete, idy_complete) = np.where(group_array == 'complete')
+        ncomplete = len(idx_complete)
+        temp = np.random.choice(['complete', 'collapse'], size=ncomplete,\
+            p=[1-prob_collapse, prob_collapse])
 
-    return 
+        idx_collapse = np.where(temp=='collapse')[0]
+        for i in idx_collapse:
+            df_damage.loc[idx_group[idx_complete[i]], idy_complete[i]] =\
+                'collapse'
 
-def compute_casualty(casualty_rate, damage_state, bldg_class, population):
+    return df_damage 
 
-    # casualty = np.zeros((4))
-    # for i in range(4):
-    #     severity_str = 'Severity' + str(i+1)
-    #     rate_ = casualty_rate[damage_state][severity_str][bldg_class]*0.01
-    #     casualty[i] = np.round(population*rate_)
-    casualty = [ population*casualty_rate[damage_state][
-        'Severity'+str(i)][bldg_class]*0.01 for i in range(1, 5) ]
-    return pd.Series({'Severity1': casualty[0], 'Severity2': casualty[1], 
-        'Severity3': casualty[2], 'Severity4': casualty[3]})
+def assign_casualty(df_damage, casualty_rate, collapse_rate):
+
+    casualty = {}
+    for severity in casualty_rate.keys():
+
+        df_casualty = pd.DataFrame(df_damage.values)
+
+        for bldg, group in df_casualty.groupby(df_casualty.shape[1]-1):
+            print "%s: %s" %(severity, bldg)
+            replace_dic = casualty_rate[severity][bldg]
+            for ds in replace_dic.keys():
+                df_casualty[group==ds] = replace_dic[ds]
+
+                #df_casualty.loc[group==ds] = replace_dic[ds]
+                #df_casualty.where(group==ds, replace_dic[ds], inplace=True)
+
+        casualty[severity] = df_casualty.copy()
+
+    return casualty
 
 def read_hazus_casualty_data(hazus_data_path, selected_bldg_class=None):
 
@@ -91,15 +119,20 @@ def read_hazus_casualty_data(hazus_data_path, selected_bldg_class=None):
             names=colname, usecols=[1, 2, 3, 4, 5], index_col=0)
         if selected_bldg_class is not None:
             okay = tmp.index.isin(selected_bldg_class)
-            casualty_rate[ds] = tmp.ix[okay].to_dict()
+            rate_ = tmp.ix[okay].to_dict()
         else:
-            casualty_rate[ds] = tmp.to_dict()
+            rate_ = tmp.to_dict()
+
+        # create dictionary (severity, bldg, damage)
+        for level in rate_.keys():
+            for bldg in rate_[level].keys():
+                casualty_rate.setdefault(level, {}).setdefault(bldg, {})[ds] =\
+                    rate_[level][bldg]
 
     # no damage
-    casualty_rate['no'] = copy.deepcopy(casualty_rate['slight'])
-    for str_ in ['Severity1', 'Severity2', 'Severity3', 'Severity4']:
-        casualty_rate['no'][str_] = {key: 0 for key, val in \
-        casualty_rate['no']['Severity4'].items()}
+    for level in casualty_rate.keys():
+        for bldg in casualty_rate[level].keys():
+            casualty_rate[level][bldg]['no'] = 0.0
 
     return casualty_rate
 
@@ -121,20 +154,38 @@ def read_hazus_collapse_rate(hazus_data_path, selected_bldg_class=None):
 ###############################################################################
 # main 
 
-import scipy
-from scipy import stats
-import numpy as np
-import sys
-import os
-import copy
-import pandas as pd
-
 working_path = os.path.join(os.path.expanduser("~"),'Projects/scenario_Sydney')
 data_path = os.path.join(working_path, 'data')
 hazus_data_path = os.path.join(data_path, 'hazus')
 
 # read data
 data = pd.read_csv(os.path.join(data_path, 'loss_ratio_by_bldg.csv'), dtype={'SA1_CODE': str})
+
+# MEAN LOSS RATIO by SA1
+grouped = data.groupby('SA1_CODE')
+mean_loss_ratio_by_SA1 = grouped['LOSS_RATIO'].mean()
+mean_loss_ratio_by_SA1.to_csv(os.path.join(data_path,'mean_loss_ratio_by_SA1.csv'), index=False)
+
+# sample loss ratio assuming gamma distribution with constant cov
+nsample = 100
+cov = 1.0
+okay = data[~data['LOSS_RATIO'].isnull()].index
+mean_lratio = data.loc[okay, 'LOSS_RATIO'].values
+pop = data.loc[okay, 'POPULATION'].values
+
+np.random.seed(99)
+# np.array(nsample, nbldgs)
+sample = sample_vulnerability(mean_lratio, nsample=nsample, cov=cov)
+
+# assign damage state
+damage_labels = ['no', 'slight', 'moderate', 'extensive', 'complete']
+damage_thresholds = [-1.0, 0.02, 0.1, 0.5, 0.8, 1.1]
+
+df_damage = assign_damage_state(data, okay, sample, damage_thresholds,\
+    damage_labels):
+
+np.save(sample, os.path.join(data_path, 'sample_loss_ratio.npy'))
+del sample
 
 # read hazus indoor casualty data
 casualty_rate = read_hazus_casualty_data(hazus_data_path,\
@@ -144,40 +195,49 @@ casualty_rate = read_hazus_casualty_data(hazus_data_path,\
 collapse_rate = read_hazus_collapse_rate(hazus_data_path,\
     selected_bldg_class = data['BLDG_CLASS'].unique())
 
-# sample loss ratio assuming gamma distribution with constant cov
-nsample = 100
-cov = 1.0
-okay = data[~data['LOSS_RATIO'].isnull()].index
-mean_lratio = data.loc[okay, 'LOSS_RATIO'].values
-sample = sample_vulnerability(mean_lratio, nsample=nsample, cov=cov)
+# assign casualty rate by damage state
+# casualty{'Severity'}.DataFrame
+casualty = assign_casualty(df_damage, casualty_rate, collapse_rate)
+       
+# save casualty
+for severity in casualty.keys():
+    casualty[severity].to_csv(os.path.join(data_path,'%s_%s.csv' %('casualty_rate',\
+     severity)), index=False)
 
-# assign damage state
-damage_labels = ['no', 'slight', 'moderate', 'extensive', 'complete']
-damage_thresholds = [-1.0, 0.02, 0.1, 0.5, 0.8, 1.1]
-df_damage = pd.DataFrame(index=okay, columns=range(nsample)) #, dtype=str)
+# multiply casualty with population
+casualty_number = pd.DataFrame(index=range(nsample), columns=casualty_rate.keys())
+for severity in casualty_rate.keys():
+    value_ = 0.01*casualty[severity].\
+        iloc[:, range(nsample)].multiply(pop, axis=0)
+    casualty_number.loc[:, severity] = value_.sum(axis=0)
 
-for i in range(nsample):
-    df_damage[i] = pd.cut(sample[i, :], damage_thresholds, 
-    labels=damage_labels)
-    df_damage[i].cat.add_categories(['collapse'])
+casualty_number.to_csv(os.path.join(data_path,'casualty_number.csv'), index=False)
 
-df_damage['BLDG_CLASS'] = data.loc[okay, 'BLDG_CLASS']
+#casualty_number[severity]['BLDG_CLASS'] = data.loc[okay, 'BLDG_CLASS']
+#grouped = casualty_all[severity].groupby('BLDG_CLASS')
+#grouped.sum()
 
-# processing by bldg class
+# aggregate over portfolio
+
+# using pandas
+#casualty_number = {}
+#for severity in casualty_rate.keys():
+#    casualty_ = casualty[severity].values[:, :-1]
+#    casualty_number[severity] = 0.01*casualty_*pop[:, np.newaxis]
+
+# mean casualty
+
+"""
 for name, group in df_damage.groupby('BLDG_CLASS'):
-    prob_collapse = collapse_rate[name]*1.0e-2
+    idx_group = group.index
     group_array = group.values[:,:-1]
-    (idx_complete, idy_complete) = np.where(group_array == 'complete')
-    ncomplete = len(idx_complete)
 
-    temp = np.random.choice(['complete', 'collapse'], size=ncomplete,\
-        p=[1-prob_collapse, prob_collapse])
 
-    idx_collapse = np.where(temp=='collapse')[0]
-    for i in idx_collapse:
-        print "%s will be changed to complete" %df_damage.loc[idx_group[idx_complete[i]], idy_complete[i]]
+casualty = pd.DataFrame(index=data.index, columns=['Severity'+str(i) for i in range(1, 5)])
+tmp = data.ix[okay].apply(lambda row: compute_casualty(
+    casualty_rate, row['DAMAGE'], row['BLDG_CLASS'], row['POPULATION']), axis=1)
+casualty.loc[okay] = tmp
 
-        df_damage.loc[idx_group[idx_complete[i]], idy_complete[i]] = 'collapse'
 
 data_by_SA1.loc[name, 'MEAN_LOSS_RATIO'] = group['LOSS'].sum()/group['TOTAL_COST'].sum()
 
@@ -206,11 +266,6 @@ print("Loss computed")
 data['DAMAGE'] = pd.cut(data['LOSS_RATIO'], [-1.0, 0.02, 0.1, 0.5, 0.8, 1.1], 
     labels=['no','slight','moderate','extensive, complte'])
 
-okay = data['DAMAGE'] != 'no'
-casualty = pd.DataFrame(index=data.index, columns=['Severity'+str(i) for i in range(1, 5)])
-tmp = data.ix[okay].apply(lambda row: compute_casualty(
-    casualty_rate, row['DAMAGE'], row['BLDG_CLASS'], row['POPULATION']), axis=1)
-casualty.loc[okay] = tmp
 
 print("Casualty computed")
 
@@ -235,3 +290,5 @@ for name, group in data.groupby('SA1_CODE_STR'):
 
 data_by_SA1_zero = data_by_SA1.fillna(0)
 data_by_SA1_zero.to_csv(os.path.join(data_path,'result_by_SA1.csv'), index_label='SA1_CODE')
+
+"""
