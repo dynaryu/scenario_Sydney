@@ -1,4 +1,10 @@
+*.pdf
+*.old
 .R*
+*.zip
+/plot
+/data/GIS
+*.png
 .gmt*
 .ipy*
 *.pyc
