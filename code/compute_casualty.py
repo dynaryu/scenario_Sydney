@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import scipy
 from scipy import stats
 import numpy as np
@@ -55,7 +57,7 @@ def sample_vulnerability(mean_lratio, nsample=1000, cov=1.0):
 
     return sample
 
-def assign_damage_state(data, okay, sample, damage_thresholds, damage_labels):
+def assign_damage_state(data, okay, sample, collapse_rate, damage_thresholds, damage_labels):
 
     nsample = sample.shape[0]
     df_damage = pd.DataFrame(index=okay, columns=range(nsample)) #, dtype=str)
@@ -164,7 +166,9 @@ data = pd.read_csv(os.path.join(data_path, 'loss_ratio_by_bldg.csv'), dtype={'SA
 # MEAN LOSS RATIO by SA1
 grouped = data.groupby('SA1_CODE')
 mean_loss_ratio_by_SA1 = grouped['LOSS_RATIO'].mean()
-mean_loss_ratio_by_SA1.to_csv(os.path.join(data_path,'mean_loss_ratio_by_SA1.csv'), index=False)
+file_ = os.path.join(data_path,'mean_loss_ratio_by_SA1.csv')
+mean_loss_ratio_by_SA1.to_csv(file_)
+print "%s is created" %file_
 
 # sample loss ratio assuming gamma distribution with constant cov
 nsample = 100
@@ -181,12 +185,6 @@ sample = sample_vulnerability(mean_lratio, nsample=nsample, cov=cov)
 damage_labels = ['no', 'slight', 'moderate', 'extensive', 'complete']
 damage_thresholds = [-1.0, 0.02, 0.1, 0.5, 0.8, 1.1]
 
-df_damage = assign_damage_state(data, okay, sample, damage_thresholds,\
-    damage_labels):
-
-np.save(sample, os.path.join(data_path, 'sample_loss_ratio.npy'))
-del sample
-
 # read hazus indoor casualty data
 casualty_rate = read_hazus_casualty_data(hazus_data_path,\
     selected_bldg_class = data['BLDG_CLASS'].unique())
@@ -195,14 +193,26 @@ casualty_rate = read_hazus_casualty_data(hazus_data_path,\
 collapse_rate = read_hazus_collapse_rate(hazus_data_path,\
     selected_bldg_class = data['BLDG_CLASS'].unique())
 
+df_damage = assign_damage_state(data, okay, sample, collapse_rate, damage_thresholds,\
+    damage_labels)
+
+file_ = os.path.join(data_path, 'sample_loss_ratio.npy')
+np.save(file_, sample)
+print "%s is created" %file_
+
+del sample
+
+
 # assign casualty rate by damage state
 # casualty{'Severity'}.DataFrame
 casualty = assign_casualty(df_damage, casualty_rate, collapse_rate)
        
 # save casualty
 for severity in casualty.keys():
-    casualty[severity].to_csv(os.path.join(data_path,'%s_%s.csv' %('casualty_rate',\
-     severity)), index=False)
+    file_ = os.path.join(data_path,'%s_%s.csv' %('casualty_rate',\
+     severity))
+    casualty[severity].to_csv(file_, index=False)
+    print "%s is created" %file_
 
 # multiply casualty with population
 casualty_number = pd.DataFrame(index=range(nsample), columns=casualty_rate.keys())
@@ -211,7 +221,9 @@ for severity in casualty_rate.keys():
         iloc[:, range(nsample)].multiply(pop, axis=0)
     casualty_number.loc[:, severity] = value_.sum(axis=0)
 
-casualty_number.to_csv(os.path.join(data_path,'casualty_number.csv'), index=False)
+file_ = os.path.join(data_path,'casualty_number.csv')
+casualty_number.to_csv(file_, index=False)
+print "%s is created" %file_
 
 #casualty_number[severity]['BLDG_CLASS'] = data.loc[okay, 'BLDG_CLASS']
 #grouped = casualty_all[severity].groupby('BLDG_CLASS')
