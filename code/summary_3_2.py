@@ -186,8 +186,10 @@ data.loc[okay, 'LOSS_RATIO'] = data.ix[okay].apply(lambda row: compute_vulnerabi
 # MEAN LOSS RATIO by SA1
 grouped = data.groupby('SA1_CODE')
 mean_loss_ratio_by_SA1 = grouped['LOSS_RATIO'].mean()
+mean_loss_ratio_by_SA1.fillna(0, inplace=True)
+mean_loss_ratio_by_SA1.columns = ['SA1_CODE', 'LOSS_RATIO']
 file_ = os.path.join(data_path,'mean_loss_ratio_by_SA1.csv')
-mean_loss_ratio_by_SA1.to_csv(file_)
+mean_loss_ratio_by_SA1.to_csv(file_, index=False)
 print "%s is created" %file_
 
 # clean up data and save
@@ -197,4 +199,3 @@ ndata = data.loc[okay, selected_columns]
 file_ = os.path.join(data_path,'loss_ratio_by_bldg.csv')
 ndata.to_csv(file_, index=False)
 print("%s is created" %file_)
-

@@ -192,7 +192,7 @@ collapse_rate = read_hazus_collapse_rate(hazus_data_path,\
 df_damage = assign_damage_state(data, sample, collapse_rate,\
     damage_thresholds, damage_labels)
 
-file_ = os.path.join(data_path, 'sample_loss_ratio.npy')
+file_ = os.path.join(data_path, 'sampled_loss_ratio.npy')
 np.save(file_, sample)
 print "%s is created" %file_
 
