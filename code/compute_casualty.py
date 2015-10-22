@@ -57,10 +57,10 @@ def sample_vulnerability(mean_lratio, nsample=1000, cov=1.0):
 
     return sample
 
-def assign_damage_state(data, okay, sample, collapse_rate, damage_thresholds, damage_labels):
+def assign_damage_state(data, sample, collapse_rate, damage_thresholds, damage_labels):
 
     nsample = sample.shape[0]
-    df_damage = pd.DataFrame(index=okay, columns=range(nsample)) #, dtype=str)
+    df_damage = pd.DataFrame(index=data.index, columns=range(nsample)) #, dtype=str)
     
     # assign damage by loss ratio
     for i in range(nsample):
@@ -68,7 +68,7 @@ def assign_damage_state(data, okay, sample, collapse_rate, damage_thresholds, da
         labels=damage_labels)
         df_damage[i] = df_damage[i].cat.add_categories(['collapse'])
 
-    df_damage['BLDG_CLASS'] = data.loc[okay, 'BLDG_CLASS']
+    df_damage['BLDG_CLASS'] = data['BLDG_CLASS']
 
     # assign collapse
     for name, group in df_damage.groupby('BLDG_CLASS'):
@@ -156,30 +156,26 @@ def read_hazus_collapse_rate(hazus_data_path, selected_bldg_class=None):
 ###############################################################################
 # main 
 
-working_path = os.path.join(os.path.expanduser("~"),'Projects/scenario_Sydney')
+working_path = os.path.join(os.path.expanduser("~"),\
+    'Projects/scenario_Sydney')
 data_path = os.path.join(working_path, 'data')
 hazus_data_path = os.path.join(data_path, 'hazus')
 
 # read data
-data = pd.read_csv(os.path.join(data_path, 'loss_ratio_by_bldg.csv'), dtype={'SA1_CODE': str})
-
-# MEAN LOSS RATIO by SA1
-grouped = data.groupby('SA1_CODE')
-mean_loss_ratio_by_SA1 = grouped['LOSS_RATIO'].mean()
-file_ = os.path.join(data_path,'mean_loss_ratio_by_SA1.csv')
-mean_loss_ratio_by_SA1.to_csv(file_)
-print "%s is created" %file_
+data = pd.read_csv(os.path.join(data_path, 'loss_ratio_by_bldg.csv'),\
+    dtype={'SA1_CODE': str})
 
 # sample loss ratio assuming gamma distribution with constant cov
-nsample = 100
+nsample = 1000
 cov = 1.0
-okay = data[~data['LOSS_RATIO'].isnull()].index
-mean_lratio = data.loc[okay, 'LOSS_RATIO'].values
-pop = data.loc[okay, 'POPULATION'].values
+#okay = data[~data['LOSS_RATIO'].isnull()].index
+#mean_lratio = data.loc[okay, 'LOSS_RATIO'].values
+#pop = data.loc[okay, 'POPULATION'].values
 
 np.random.seed(99)
 # np.array(nsample, nbldgs)
-sample = sample_vulnerability(mean_lratio, nsample=nsample, cov=cov)
+sample = sample_vulnerability(data['LOSS_RATIO'].values, nsample=nsample,\
+    cov=cov)
 
 # assign damage state
 damage_labels = ['no', 'slight', 'moderate', 'extensive', 'complete']
@@ -193,15 +189,14 @@ casualty_rate = read_hazus_casualty_data(hazus_data_path,\
 collapse_rate = read_hazus_collapse_rate(hazus_data_path,\
     selected_bldg_class = data['BLDG_CLASS'].unique())
 
-df_damage = assign_damage_state(data, okay, sample, collapse_rate, damage_thresholds,\
-    damage_labels)
+df_damage = assign_damage_state(data, sample, collapse_rate,\
+    damage_thresholds, damage_labels)
 
 file_ = os.path.join(data_path, 'sample_loss_ratio.npy')
 np.save(file_, sample)
 print "%s is created" %file_
 
 del sample
-
 
 # assign casualty rate by damage state
 # casualty{'Severity'}.DataFrame
@@ -218,7 +213,7 @@ for severity in casualty.keys():
 casualty_number = pd.DataFrame(index=range(nsample), columns=casualty_rate.keys())
 for severity in casualty_rate.keys():
     value_ = 0.01*casualty[severity].\
-        iloc[:, range(nsample)].multiply(pop, axis=0)
+        iloc[:, range(nsample)].multiply(data['POPULATION'], axis=0)
     casualty_number.loc[:, severity] = value_.sum(axis=0)
 
 file_ = os.path.join(data_path,'casualty_number.csv')

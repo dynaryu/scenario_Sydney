@@ -12,6 +12,15 @@ compute economic loss for each building for residential buildings in Sydney
     3.1 Assess damage state by loss ratio
 4. compute mean loss ratio 
 5. save it for further calculation
+
+What to present
+-. rock vs. soil motion
+-. soil class
+-. mean loss ratio by SA1
+-. exposure table (Age vs. type)
+-. vulnerability
+-. fatality table
+-. fatality by SA1
 '''
 
 import scipy
@@ -28,7 +37,7 @@ import pandas as pd
 def read_sitedb_data(sitedb_file):
     ''' read sitedb file '''
 
-    data = pd.read_csv(sitedb_file, dtype={'SA1_CODE_STR': str})
+    data = pd.read_csv(sitedb_file, dtype={'SA1_CODE': str})
     data['BLDG_COST'] = data['BUILDING_COST_DENSITY'] * data['FLOOR_AREA']\
        * data['SURVEY_FACTOR']
     data['CONTENTS_COST'] = data['CONTENTS_COST_DENSITY'] * data['FLOOR_AREA']\
@@ -107,7 +116,7 @@ def compute_vulnerability(mmi, bldg_class):
             flag_pre=flag_pre)
         return(inv_logit(mu))
 
-def plot_vulnerabilty(mmi_range, vul):
+def plot_vulnerabilty():
     ''' plot vulnerability'''
 
     mmi_range = np.arange(4.0, 10.0, 0.05)
@@ -123,7 +132,7 @@ def plot_vulnerabilty(mmi_range, vul):
         label_str = bldg.replace('_',':')
         plt.plot(mmi_range, vul[bldg], label=label_str)
 
-    plt.legend()
+    plt.legend(loc=2)
     plt.grid(1)
     plt.xlabel('MMI')
     plt.ylabel('Loss ratio')
@@ -138,11 +147,8 @@ data_path = os.path.join(working_path, 'data')
 hazus_data_path = os.path.join(data_path, 'hazus')
 
 # read inventory
-data = \
-    read_sitedb_data(os.path.join(data_path,
+data = read_sitedb_data(os.path.join(data_path,
         'sydney_EQRMrevised_NEXIS2015.csv'))
-
-#data['SA1_CODE'] = data['SA1_CODE'].astype(np.int64)
 
 # read gmotion
 (_, _, _, mmi) = read_gm(eqrm_output_path, site_tag='sydney_soil')
@@ -177,10 +183,18 @@ okay = data[data['MMI'] > 4.0].index
 data.loc[okay, 'LOSS_RATIO'] = data.ix[okay].apply(lambda row: compute_vulnerability(
     row['MMI'], row['BLDG_CLASS']), axis=1)
 
+# MEAN LOSS RATIO by SA1
+grouped = data.groupby('SA1_CODE')
+mean_loss_ratio_by_SA1 = grouped['LOSS_RATIO'].mean()
+file_ = os.path.join(data_path,'mean_loss_ratio_by_SA1.csv')
+mean_loss_ratio_by_SA1.to_csv(file_)
+print "%s is created" %file_
+
 # clean up data and save
 selected_columns = ['BID', 'SA1_CODE', 'POPULATION', 'BLDG_CLASS',\
     'TOTAL_COST', 'LOSS_RATIO']
-ndata = data[selected_columns]
+ndata = data.loc[okay, selected_columns]
 file_ = os.path.join(data_path,'loss_ratio_by_bldg.csv')
 ndata.to_csv(file_, index=False)
 print("%s is created" %file_)
+
