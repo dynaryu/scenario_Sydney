@@ -20,18 +20,18 @@ from numpy import arange
 working_path = join(expanduser("~"),'Projects/scenario_Sydney')
 
 # Operation Mode
-
 run_type = "hazard" 
 is_scenario = True
 #max_width = 15
-#site_tag = "sydney_soil" 
-site_tag = "sydney" 
+#site_tag = "sydney_soil" # portfolio
+site_tag = "sydney" # grid
 site_db_tag = "" 
 return_periods = [10, 50]
 input_dir = join(working_path, 'input')
-#output_dir = join(working_path, 'scen_gmMw5.0')
-#output_dir = join(working_path, 'rock_gmMw5.0')
-output_dir = join(working_path, 'gmMw5.0')
+# ground motion field (rock, soil) of Mw5.0 event
+output_dir = join(working_path, 'gm_grid_Mw5.0')
+# ground motion field (soil) of Mw5.0 event for portfolio
+output_dir = join(working_path, 'gm_portfolio_Mw5.0')
 del working_path
 use_site_indexes = False #True
 site_indexes = []

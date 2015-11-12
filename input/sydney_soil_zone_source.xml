@@ -1,0 +1,40 @@
+<source_model_zone magnitude_type="Mw"> 
+<zone area = "    86975.00" name = "Zone_5" event_type = "Non_cratonic"> 
+ <geometry  dip = "35" delta_dip = "0" azimuth = "180" delta_azimuth = "180" depth_top_seismogenic = "0" depth_bottom_seismogenic = "20"> 
+<boundary> -32.000000 151.000000 
+-32.500000 152.000000 
+-32.900000 152.200000 
+-35.300000 150.900000 
+-35.300000 150.600000 
+-34.700000 150.000000 
+-33.500000 149.500000 
+-32.800000 148.300000 
+-32.000000 148.000000 
+-31.500000 149.500000 
+-32.000000 151.000000 </boundary> 
+</geometry>
+<recurrence_model distribution = "bounded_gutenberg_richter" recurrence_min_mag = "3.50"  recurrence_max_mag = "7.50" A_min = "0.621" b = "0.867">
+<event_generation generation_min_mag = "4.5" number_of_mag_sample_bins = "31" number_of_events = "263561" /> 
+ </recurrence_model> 
+ </zone> 
+<zone area = "    62584.00" name = "Zone_6" event_type = "Non_cratonic"> 
+ <geometry  dip = "35" delta_dip = "0" azimuth = "180" delta_azimuth = "180" depth_top_seismogenic = "0" depth_bottom_seismogenic = "20"> 
+<boundary> -30.866000 153.097000 
+-31.000000 153.500000 
+-33.943000 152.368000 
+-37.500000 151.000000 
+-36.861000 150.201000 
+-36.500000 149.750000 
+-35.300000 150.600000 
+-35.300000 150.900000 
+-32.900000 152.200000 
+-32.500000 152.000000 
+-30.750000 152.750000 
+-30.866000 153.097000 </boundary> 
+</geometry>
+<recurrence_model distribution = "bounded_gutenberg_richter" recurrence_min_mag = "3.50"  recurrence_max_mag = "7.70" A_min = "0.159" b = "1.013">
+<event_generation generation_min_mag = "4.5" number_of_mag_sample_bins = "33" number_of_events = "189648" /> 
+ </recurrence_model> 
+ </zone> 
+</source_model_zone> 
+ 

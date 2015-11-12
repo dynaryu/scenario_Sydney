@@ -1,3 +1,9 @@
+/document
+/figures/
+/gm*
+/prob_haz*
+/data
+*.jpg
 *.pdf
 *.old
 .R*
