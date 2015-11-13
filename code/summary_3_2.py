@@ -23,7 +23,6 @@ What to present
 -. fatality by SA1
 '''
 
-from scipy import stats
 import numpy as np
 import os
 import pandas as pd
@@ -38,9 +37,9 @@ def read_sitedb_data(sitedb_file):
 
     data = pd.read_csv(sitedb_file, dtype={'SA1_CODE': str})
     data['BLDG_COST'] = data['BUILDING_COST_DENSITY'] * data['FLOOR_AREA']\
-                        * data['SURVEY_FACTOR']
+        * data['SURVEY_FACTOR']
     data['CONTENTS_COST'] = data['CONTENTS_COST_DENSITY'] * data['FLOOR_AREA']\
-                            * data['SURVEY_FACTOR']
+        * data['SURVEY_FACTOR']
     data['TOTAL_COST'] = data['BLDG_COST'] + data['CONTENTS_COST']
 
     return data
@@ -62,7 +61,7 @@ def read_gm(eqrm_output_path, site_tag):
     try:
         print 'GM at soil is loaded'
         gmotion = np.load(os.path.join(eqrm_output_path, site_tag +
-                          '_motion/soil_SA.npy'))  #(1,1,1,sites,nsims,nperiods)
+                          '_motion/soil_SA.npy'))  # (1,1,1,sites,nsims,nperiods)
     except IOError:
         print 'GM at bedrock is loaded'
         gmotion = np.load(os.path.join(eqrm_output_path, site_tag +
@@ -79,12 +78,12 @@ def read_gm(eqrm_output_path, site_tag):
 def compute_vulnerability(mmi, bldg_class):
 
     def inv_logit(x):
-        return  np.exp(x)/(1.0 + np.exp(x))
+        return np.exp(x)/(1.0 + np.exp(x))
 
     def compute_mu(mmi, **kwargs):
 
         coef = {
-            "t0":-8.56,
+            "t0": -8.56,
             "t1": 0.92,
             "t2": -4.82,
             "t3": 2.74,
@@ -117,15 +116,16 @@ def compute_vulnerability(mmi, bldg_class):
                         flag_pre=flag_pre)
         return(inv_logit(mu))
 
+
 def compute_vulnerability_retrofit(mmi, bldg_class):
 
     def inv_logit(x):
-        return  np.exp(x)/(1.0 + np.exp(x))
+        return np.exp(x)/(1.0 + np.exp(x))
 
     def compute_mu(mmi, **kwargs):
 
         coef = {
-            "t0":-8.56,
+            "t0": -8.56,
             "t1": 0.92,
             "t2": -4.82,
             "t3": 2.74,
@@ -213,93 +213,96 @@ def plot_vulnerabilty():
 ###############################################################################
 # main
 
-working_path = os.path.join(os.path.expanduser("~"), 'Projects/scenario_Sydney')
-eqrm_input_path = os.path.join(working_path, 'input')
-eqrm_output_path = os.path.join(working_path, 'gm_portfolio_Mw5.0')
-data_path = os.path.join(working_path, 'data')
-hazus_data_path = os.path.join(data_path, 'hazus')
+def main(flag_retrofit=0):
 
-# read inventory
-data = read_sitedb_data(os.path.join(data_path,
-                        'sydney_EQRMrevised_NEXIS2015.csv'))
+    working_path = os.path.join(os.path.expanduser("~"), 'Projects/scenario_Sydney')
+    eqrm_input_path = os.path.join(working_path, 'input')
+    eqrm_output_path = os.path.join(working_path, 'gm_portfolio_Mw5.0')
+    data_path = os.path.join(working_path, 'data')
+    hazus_data_path = os.path.join(data_path, 'hazus')
 
-# read gmotion
-(_, _, _, mmi) = read_gm(eqrm_output_path, site_tag='sydney_soil')
+    # read inventory
+    data = read_sitedb_data(os.path.join(data_path,
+                            'sydney_EQRMrevised_NEXIS2015.csv'))
 
-# combine mmi
-data['MMI'] = pd.Series(mmi[:, 0], index=data.index)
+    # read gmotion
+    (_, _, _, mmi) = read_gm(eqrm_output_path, site_tag='sydney_soil')
 
-# remove nan value (FIXME)
-# data.isnull().sum()
-#data = data[pd.notnull(data['STRUCTURE_CLASSIFICATION'])]
+    # combine mmi
+    data['MMI'] = pd.Series(mmi[:, 0], index=data.index)
 
-# pivot table
-#table = pd.pivot_table(data, values="BID", index='STRUCTURE_CLASSIFICATION',\
-#   columns='PRE1989', aggfunc=np.size)
-#data['BLDG_CLASS'].value_counts()
-# Out[43]:
-# Timber_Post1945    766179
-# URM_Post1945       132624
-# URM_Pre1945         72898
-# Timber_Pre1945        212
+    # remove nan value (FIXME)
+    # data.isnull().sum()
+    #data = data[pd.notnull(data['STRUCTURE_CLASSIFICATION'])]
 
-#data['LOSS_RATIO'] = compute_vulnerability(data['MMI'],
-#   flag_timber=data['FLAG_TIMBER'],
-#   flag_pre=data['FLAG_PRE'])
+    # pivot table
+    #table = pd.pivot_table(data, values="BID", index='STRUCTURE_CLASSIFICATION',\
+    #   columns='PRE1989', aggfunc=np.size)
+    #data['BLDG_CLASS'].value_counts()
+    # Out[43]:
+    # Timber_Post1945    766179
+    # URM_Post1945       132624
+    # URM_Pre1945         72898
+    # Timber_Pre1945        212
 
-# for name, group in data.groupby('BLDG_CLASS'):
+    #data['LOSS_RATIO'] = compute_vulnerability(data['MMI'],
+    #   flag_timber=data['FLAG_TIMBER'],
+    #   flag_pre=data['FLAG_PRE'])
 
-#     tmp = group.apply(lambda row: compute_vulnerability(row['MMI'], name), axis=1)
-#     data['new'] = pd.Series(data=tmp, index=tmp.index)
+    # for name, group in data.groupby('BLDG_CLASS'):
 
-flag_retrofit = 1
+    #     tmp = group.apply(lambda row: compute_vulnerability(row['MMI'], name), axis=1)
+    #     data['new'] = pd.Series(data=tmp, index=tmp.index)
 
-if flag_retrofit:
+    if flag_retrofit:
 
-    print "Computing using the models for retrofitted buildings"
+        print "Computing using the models for retrofitted buildings"
 
-    okay = data[data['MMI'] > 4.0].index
-    data.loc[okay, 'LOSS_RATIO'] = \
-        data.ix[okay].apply(lambda row: compute_vulnerability_retrofit(
-            row['MMI'], row['BLDG_CLASS']), axis=1)
+        okay = data[data['MMI'] > 4.0].index
+        data.loc[okay, 'LOSS_RATIO'] = \
+            data.ix[okay].apply(lambda row: compute_vulnerability_retrofit(
+                row['MMI'], row['BLDG_CLASS']), axis=1)
 
-    # MEAN LOSS RATIO by SA1
-    grouped = data.groupby('SA1_CODE')
-    mean_loss_ratio_by_SA1 = grouped['LOSS_RATIO'].mean()
-    mean_loss_ratio_by_SA1.fillna(0, inplace=True)
-    mean_loss_ratio_by_SA1.columns = ['SA1_CODE', 'LOSS_RATIO']
-    file_ = os.path.join(data_path,'mean_loss_ratio_by_SA1_retrofit.csv')
-    mean_loss_ratio_by_SA1.to_csv(file_)
-    print "%s is created" %file_
+        # MEAN LOSS RATIO by SA1
+        grouped = data.groupby('SA1_CODE')
+        mean_loss_ratio_by_SA1 = grouped['LOSS_RATIO'].mean()
+        mean_loss_ratio_by_SA1.fillna(0, inplace=True)
+        mean_loss_ratio_by_SA1.columns = ['SA1_CODE', 'LOSS_RATIO']
+        file_ = os.path.join(data_path,'mean_loss_ratio_by_SA1_retrofit.csv')
+        mean_loss_ratio_by_SA1.to_csv(file_)
+        print "%s is created" %file_
 
-    # clean up data and save
-    selected_columns = ['BID', 'SA1_CODE', 'POPULATION', 'BLDG_CLASS',\
-        'TOTAL_COST', 'LOSS_RATIO']
-    ndata = data.loc[okay, selected_columns]
-    file_ = os.path.join(data_path,'loss_ratio_by_bldg_retrofit.csv')
-    ndata.to_csv(file_, index=False)
-    print("%s is created" %file_)
+        # clean up data and save
+        selected_columns = ['BID', 'SA1_CODE', 'POPULATION', 'BLDG_CLASS',\
+            'TOTAL_COST', 'LOSS_RATIO']
+        ndata = data.loc[okay, selected_columns]
+        file_ = os.path.join(data_path,'loss_ratio_by_bldg_retrofit.csv')
+        ndata.to_csv(file_, index=False)
+        print("%s is created" %file_)
 
-else:
+    else:
 
-    okay = data[data['MMI'] > 4.0].index
-    data.loc[okay, 'LOSS_RATIO'] = \
-        data.ix[okay].apply(lambda row: compute_vulnerability(
-            row['MMI'], row['BLDG_CLASS']), axis=1)
+        okay = data[data['MMI'] > 4.0].index
+        data.loc[okay, 'LOSS_RATIO'] = \
+            data.ix[okay].apply(lambda row: compute_vulnerability(
+                row['MMI'], row['BLDG_CLASS']), axis=1)
 
-    # MEAN LOSS RATIO by SA1
-    grouped = data.groupby('SA1_CODE')
-    mean_loss_ratio_by_SA1 = grouped['LOSS_RATIO'].mean()
-    mean_loss_ratio_by_SA1.fillna(0, inplace=True)
-    mean_loss_ratio_by_SA1.columns = ['SA1_CODE', 'LOSS_RATIO']
-    file_ = os.path.join(data_path,'mean_loss_ratio_by_SA1.csv')
-    mean_loss_ratio_by_SA1.to_csv(file_)
-    print "%s is created" %file_
+        # MEAN LOSS RATIO by SA1
+        grouped = data.groupby('SA1_CODE')
+        mean_loss_ratio_by_SA1 = grouped['LOSS_RATIO'].mean()
+        mean_loss_ratio_by_SA1.fillna(0, inplace=True)
+        mean_loss_ratio_by_SA1.columns = ['SA1_CODE', 'LOSS_RATIO']
+        file_ = os.path.join(data_path,'mean_loss_ratio_by_SA1.csv')
+        mean_loss_ratio_by_SA1.to_csv(file_)
+        print "%s is created" %file_
 
-    # clean up data and save
-    selected_columns = ['BID', 'SA1_CODE', 'POPULATION', 'BLDG_CLASS',\
-        'TOTAL_COST', 'LOSS_RATIO']
-    ndata = data.loc[okay, selected_columns]
-    file_ = os.path.join(data_path,'loss_ratio_by_bldg.csv')
-    ndata.to_csv(file_, index=False)
-    print("%s is created" %file_)
+        # clean up data and save
+        selected_columns = ['BID', 'SA1_CODE', 'POPULATION', 'BLDG_CLASS',\
+            'TOTAL_COST', 'LOSS_RATIO']
+        ndata = data.loc[okay, selected_columns]
+        file_ = os.path.join(data_path,'loss_ratio_by_bldg.csv')
+        ndata.to_csv(file_, index=False)
+        print("%s is created" %file_)
+
+if __name__ == '__main__':
+    main(flag_retrofit=0)
