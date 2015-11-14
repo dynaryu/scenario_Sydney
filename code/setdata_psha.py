@@ -20,7 +20,8 @@ from numpy import arange
 working_path = join(expanduser("~"),'Projects/scenario_Sydney')
 
 # Operation Mode
-run_type = "hazard" 
+#run_type = "hazard" 
+run_type = "risk_mmi" 
 is_scenario = False
 #max_width = 15
 site_tag = "sydney_soil" # portfolio
@@ -63,14 +64,17 @@ amp_max_factor = 10000
 
 # Capacity Spectrum Method
 
+# Vulnerability Input
+vulnerability_variability_method = None
+
 # Loss
 
 # Save
-save_hazard_map = True
+save_hazard_map = False
 save_total_financial_loss = False
-save_building_loss = False
+save_building_loss = True
 save_contents_loss = False
-save_motion = True
+save_motion = False
 save_prob_structural_damage = None
 
 file_array = False
