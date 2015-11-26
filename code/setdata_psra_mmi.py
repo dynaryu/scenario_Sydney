@@ -71,9 +71,6 @@ vulnerability_variability_method = None
 
 # Loss
 
-# vulnerability
-vulnerability_variability_method = None
-
 # Save
 save_hazard_map = False
 save_total_financial_loss = False
