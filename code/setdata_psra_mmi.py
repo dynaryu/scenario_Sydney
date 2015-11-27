@@ -32,10 +32,10 @@ return_periods = [10, 50, 100, 200, 250, 474.56, 500, 974.78999999999996, 1000,
                   2474.9000000000001, 2500, 5000, 7500, 10000]
 input_dir = join(working_path, 'input')
 # ground motion field (rock, soil) of events
-output_dir = join(working_path, 'prob_risk')
+output_dir = join(working_path, 'prob_risk_s1000')
 del working_path
-use_site_indexes = False  # True
-site_indexes = []
+use_site_indexes = True
+site_indexes = range(1000) # []
 zone_source_tag = ""
 event_control_tag = ""
 
@@ -47,7 +47,7 @@ event_control_tag = ""
 atten_models = ['Somerville09_Non_Cratonic', 'Akkar_2010_crustal', 'Campbell08']
 atten_model_weights = [0.4, 0.2, 0.4]
 atten_collapse_Sa_of_atten_models = True
-atten_periods = [0.0, 0.3, 1.0]  # hyeuk
+atten_periods = [0.0, 1.0]  # hyeuk
 atten_threshold_distance = 400
 atten_variability_method = 2  # None
 atten_override_RSA_shape = None
