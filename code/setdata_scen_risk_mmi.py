@@ -54,7 +54,7 @@ scenario_number_of_events = 1
 atten_models = ['Somerville09_Non_Cratonic', 'Akkar_2010_crustal', 'Campbell08']
 atten_model_weights = [0.4, 0.2, 0.4]
 atten_collapse_Sa_of_atten_models = True
-atten_periods = [0.0, 0.3, 1.0]  # hyeuk
+atten_periods = [0.0, 1.0]  # hyeuk
 atten_threshold_distance = 400
 atten_variability_method = 2  # None
 atten_override_RSA_shape = None
@@ -83,7 +83,7 @@ save_hazard_map = False
 save_total_financial_loss = False
 save_building_loss = True
 save_contents_loss = False
-save_motion = False
+save_motion = True
 save_prob_structural_damage = None
 
 file_array = False
