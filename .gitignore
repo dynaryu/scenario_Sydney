@@ -1,3 +1,7 @@
+prob_*/
+scen_*/
+*.o*
+*.e*
 /code/unused
 /document
 /figures/
