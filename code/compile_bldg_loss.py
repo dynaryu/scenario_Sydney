@@ -24,8 +24,9 @@ def main(args):
 
     output_path, bldg_class = args[0], args[1]
 
-    site_tag = [x for x in os.listdir(output_path) if 'event' in x]
-    site_tag = site_tag[0].replace('_event_set', '')
+    for item in os.listdir(output_path):
+        if 'event' in item and os.path.isdir(os.path.join(output_path, item)):
+            site_tag = item.replace('_event_set', '')
 
     # read building value
     if sys.platform == 'win32':
