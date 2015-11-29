@@ -32,10 +32,10 @@ return_periods = [10, 50, 100, 200, 250, 474.56, 500, 974.78999999999996, 1000,
                   2474.9000000000001, 2500, 5000, 7500, 10000]
 input_dir = join(working_path, 'input')
 # ground motion field (rock, soil) of events
-output_dir = join(working_path, 'prob_risk_s1000')
+output_dir = join(working_path, 'prob_risk_s0')
 del working_path
 use_site_indexes = True
-site_indexes = range(1000) # []
+site_indexes = range(50000)
 zone_source_tag = ""
 event_control_tag = ""
 
