@@ -50,3 +50,18 @@ del sitedb
 file_ = os.path.join(working_path, 'input/sitedb_sydney_soil_reduced.csv')
 sydney_reduced.to_csv(file_, index=False)
 print("%s is created successfully." % file_)
+
+
+##############################################################################
+# Read sydney building data
+sitedb = pd.read_csv(os.path.join(working_path, 'input',
+                     'sitedb_sydney_soil.org.csv'), dtype={'SA1_CODE': str})
+
+sitedb = pd.read_csv(os.path.join(working_path, 'input',
+                     'sitedb_sydney_soil.csv'), dtype={'SA1_CODE': str})
+
+for item, groups in sitedb.groupby('STRUCTURE_CLASSIFICATION'):
+    file_ = os.path.join(working_path, 'input/sitedb_sydney_soil_{}.csv'.format(item))
+    groups.to_csv(file_, index=False)
+    print("%s is created successfully." % file_)
+
