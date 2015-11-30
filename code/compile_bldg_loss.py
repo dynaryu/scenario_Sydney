@@ -76,13 +76,15 @@ def main(args):
         with open(file_) as fid:
             tmp = fid.read().strip().split('\n')
             assert len(tmp[2:]) == nevents
-            loss_array[:, i] = tmp[2:]
+            loss_ = np.array(tmp[2:], dtype=float)/bldg_cost
+            loss_array[:, i] = loss_[:]
 
     loss_array = np.sum(loss_array, axis=1)
 
     result = np.vstack((activity, loss_array)).T
 
-    np.save(os.path.join(output_path, 'activity_loss.npy'), result)
+    np.save(os.path.join(output_path,
+                         'activity_loss_{}.npy'.format(bldg_class)), result)
 
     return result
 
